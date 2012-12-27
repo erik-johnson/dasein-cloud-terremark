@@ -1,4 +1,8 @@
 dasein-cloud-terremark
-======================
+=======================
 
-Dasein Cloud implementation for Terremark Enterprise Cloud and Terremark vCloud Express platforms. For more information, see the Dasein Cloud home page at https://github.com/greese/dasein-cloud.
+The Dasein Cloud Terremark submodule to the [Dasein Cloud](https://github.com/greese/dasein-cloud) project. It provides
+an implementation of the Dasein Cloud API for Terremark Enterprise Cloud and  Terremark vCloud Express.
+
+* [Get started with Dasein Cloud](https://github.com/dasein-cloud)
+* [Get started with Dasein Cloud + Terremark](https://github.com/greese/dasein-cloud-terremark/wiki)
