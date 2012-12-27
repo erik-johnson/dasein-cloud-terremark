@@ -56,7 +56,7 @@ public class DiskSupport implements VolumeSupport {
 	public final static String RETRY_ATTACH_DISK_OPERATION = "Retry attach disk";
 
 	// Task Wait Times
-	public final static long DEFAULT_SLEEP                 = CalendarWrapper.SECOND * 30;
+	public final static long DEFAULT_SLEEP                 = CalendarWrapper.SECOND * 10;
 	public final static long DEFAULT_TIMEOUT               = CalendarWrapper.MINUTE * 45;
 
 	static Logger logger = Terremark.getLogger(DiskSupport.class);
@@ -123,7 +123,7 @@ public class DiskSupport implements VolumeSupport {
 			}
 			catch (CloudException e) {
 				String retryHref = "/attachDiskRetryOperations/" + VMSupport.VIRTUAL_MACHINES + "/" + toServer + "/action/retry";
-				TerremarkMethod retryMethod = new TerremarkMethod(provider, HttpMethodName.GET, retryHref, null, null);
+				TerremarkMethod retryMethod = new TerremarkMethod(provider, HttpMethodName.POST, retryHref, null, "");
 				Document retryDoc = retryMethod.invoke();
 				
 				String retryTaskHref = Terremark.getTaskHref(retryDoc, RETRY_ATTACH_DISK_OPERATION);
@@ -195,17 +195,41 @@ public class DiskSupport implements VolumeSupport {
 		Document doc = method.invoke();
 		if (doc != null) {
 			try {
-				String diskHref = doc.getElementsByTagName(DETACHED_DISK_TAG).item(0).getAttributes().getNamedItem(Terremark.HREF).getNodeValue();
-				TerremarkMethod diskMethod = new TerremarkMethod(provider, HttpMethodName.GET, diskHref, null, null);
-				Document diskDoc = diskMethod.invoke();
-				
-				String taskHref = Terremark.getTaskHref(diskDoc, DETACH_DISK_OPERATION);
+				String diskId = Terremark.hrefToId(doc.getElementsByTagName(DETACHED_DISK_TAG).item(0).getAttributes().getNamedItem(Terremark.HREF).getNodeValue());
+				String computePool = Terremark.hrefToId(doc.getElementsByTagName("Link").item(0).getAttributes().getNamedItem(Terremark.HREF).getNodeValue());
+				String disksUrl = "/" + DETACHED_DISKS + "/" + EnvironmentsAndComputePools.COMPUTE_POOLS + "/" + computePool;
+				TerremarkMethod diskMethod = new TerremarkMethod(provider, HttpMethodName.GET, disksUrl, null, null);
+				Document disksDoc = diskMethod.invoke();
+				String taskHref = null;
+				NodeList tasks = disksDoc.getElementsByTagName("Tasks");
+				for (int i=0; i<tasks.getLength(); i++) {
+					Node tasksNode = tasks.item(i);
+					if (tasksNode.getAttributes().getNamedItem(Terremark.HREF).getNodeValue().contains("/" + diskId)) {
+						NodeList taskElements = tasksNode.getChildNodes();
+						for (int j=0; j<taskElements.getLength(); j++) {
+							Node taskElement = taskElements.item(j);
+							NodeList taskChildren = taskElement.getChildNodes();
+							for (int k=0; k<taskChildren.getLength(); k++) {
+								Node taskChild = taskChildren.item(k);
+								if (taskChild.getNodeName().equals(Terremark.OPERATION_TAG)) {
+									if (taskChild.getTextContent().equals(DETACH_DISK_OPERATION)) { 
+										taskHref = taskElement.getAttributes().getNamedItem(Terremark.HREF).getNodeValue();
+										break;
+									}
+								}
+							}
+							if (taskHref != null) {
+								break;
+							}
+						}
+					}
+				}
 				try {
 					provider.waitForTask(taskHref, DEFAULT_SLEEP, DEFAULT_TIMEOUT);
 				}
 				catch (CloudException e) {
 					String retryHref = "/detachDiskRetryOperations/" + VMSupport.VIRTUAL_MACHINES + "/" + vmId + "/action/retry";
-					TerremarkMethod retryMethod = new TerremarkMethod(provider, HttpMethodName.GET, retryHref, null, null);
+					TerremarkMethod retryMethod = new TerremarkMethod(provider, HttpMethodName.POST, retryHref, null, "");
 					Document retryDoc = retryMethod.invoke();
 					
 					String retryTaskHref = Terremark.getTaskHref(retryDoc, DETACH_DISK_OPERATION);
@@ -214,6 +238,7 @@ public class DiskSupport implements VolumeSupport {
 			}
 			catch (Exception e) {
 				logger.warn("Encountered an error while getting and polling the task: " + e);
+				e.printStackTrace();
 			}
 
 		}
@@ -254,6 +279,15 @@ public class DiskSupport implements VolumeSupport {
 			Node diskNode = doc.getElementsByTagName(DETACHED_DISK_TAG).item(0);
 			volume.setProviderVolumeId(diskId);
 			volume.setName(diskNode.getAttributes().getNamedItem(Terremark.NAME).getNodeValue());
+			if (volume.getName().contains("-")) {
+				String timestamp = volume.getName().split("-")[0];
+				try {
+					volume.setCreationTimestamp(Long.parseLong(timestamp));
+				}
+				catch (NumberFormatException e) {
+					logger.info("Failed to set volume creation timestamp.");
+				}
+			}
 			volume.setProviderRegionId(provider.getContext().getRegionId());
 			NodeList diskChildren = diskNode.getChildNodes();
 			for (int i=0; i<diskChildren.getLength(); i++) {
@@ -379,6 +413,15 @@ public class DiskSupport implements VolumeSupport {
 					String id = Terremark.hrefToId(detachedDiskNode.getAttributes().getNamedItem(Terremark.HREF).getNodeValue());
 					volume.setProviderVolumeId(id);
 					volume.setName(detachedDiskNode.getAttributes().getNamedItem(Terremark.NAME).getNodeValue());
+					if (volume.getName().contains("-")) {
+						String timestamp = volume.getName().split("-")[0];
+						try {
+							volume.setCreationTimestamp(Long.parseLong(timestamp));
+						}
+						catch (NumberFormatException e) {
+							logger.info("Failed to set volume creation timestamp.");
+						}
+					}
 					NodeList diskChildren = detachedDiskNode.getChildNodes();
 					for (int j=0; j<diskChildren.getLength(); j++) {
 						Node diskChild = diskChildren.item(j);
