@@ -6,28 +6,36 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.UnsupportedEncodingException;
+import java.net.URISyntaxException;
 import java.util.Map;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 
-import org.apache.commons.httpclient.Header;
-import org.apache.commons.httpclient.HttpClient;
-import org.apache.commons.httpclient.HttpException;
-import org.apache.commons.httpclient.HttpMethod;
-import org.apache.commons.httpclient.HttpStatus;
-import org.apache.commons.httpclient.NameValuePair;
-import org.apache.commons.httpclient.methods.DeleteMethod;
-import org.apache.commons.httpclient.methods.EntityEnclosingMethod;
-import org.apache.commons.httpclient.methods.GetMethod;
-import org.apache.commons.httpclient.methods.HeadMethod;
-import org.apache.commons.httpclient.methods.PostMethod;
-import org.apache.commons.httpclient.methods.PutMethod;
-import org.apache.commons.httpclient.methods.RequestEntity;
-import org.apache.commons.httpclient.methods.StringRequestEntity;
-import org.apache.commons.httpclient.params.HttpClientParams;
-import org.apache.commons.httpclient.params.HttpMethodParams;
+import org.apache.http.Header;
+import org.apache.http.HttpEntity;
+import org.apache.http.HttpHost;
+import org.apache.http.HttpResponse;
+import org.apache.http.HttpStatus;
+import org.apache.http.HttpVersion;
+import org.apache.http.NameValuePair;
+import org.apache.http.client.HttpClient;
+import org.apache.http.client.methods.HttpDelete;
+import org.apache.http.client.methods.HttpEntityEnclosingRequestBase;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.methods.HttpHead;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.client.methods.HttpPut;
+import org.apache.http.client.methods.HttpUriRequest;
+import org.apache.http.client.utils.URIBuilder;
+import org.apache.http.conn.params.ConnRoutePNames;
+import org.apache.http.entity.StringEntity;
+import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.params.BasicHttpParams;
+import org.apache.http.params.HttpParams;
+import org.apache.http.params.HttpProtocolParams;
+import org.apache.http.util.EntityUtils;
 import org.apache.log4j.Logger;
 import org.dasein.cloud.CloudErrorType;
 import org.dasein.cloud.CloudException;
@@ -100,60 +108,73 @@ public class TerremarkMethod {
 			if( logger.isDebugEnabled() ) {
 				logger.debug("Talking to server at " + url);
 			}
-			HttpClientParams httpClientParams = new HttpClientParams();
-
-			HttpMethod method = null;
+			
+			if (parameters != null ){
+				URIBuilder uri = null;
+				try {
+					uri = new URIBuilder(url);
+				} catch (URISyntaxException e) {
+					e.printStackTrace();
+				}
+				for (NameValuePair parameter : parameters) {
+					uri.addParameter(parameter.getName(), parameter.getValue());
+				}
+				url = uri.toString();
+			}
+			
+			HttpUriRequest method = null;
 			if (methodType.equals(HttpMethodName.GET)){
-				method = new GetMethod(url);
+				method = new HttpGet(url);
 			}
 			else if (methodType.equals(HttpMethodName.POST)){
-				method = new PostMethod(url);
+				method = new HttpPost(url);
 			}
 			else if (methodType.equals(HttpMethodName.DELETE)){
-				method = new DeleteMethod(url);
+				method = new HttpDelete(url);
 			}
 			else if (methodType.equals(HttpMethodName.PUT)){
-				method = new PutMethod(url);
+				method = new HttpPut(url);
 			}
 			else if (methodType.equals(HttpMethodName.HEAD)){
-				method = new HeadMethod(url);
+				method = new HttpHead(url);
 			}
 			else {
-				method = new GetMethod(url);
+				method = new HttpGet(url);
 			}
-
+			HttpResponse status = null;
 			try {
-				HttpClient client;
-				int status;
+				HttpClient client = new DefaultHttpClient();
+				HttpParams params = new BasicHttpParams();
+
+		        HttpProtocolParams.setVersion(params, HttpVersion.HTTP_1_1);
+		        HttpProtocolParams.setContentCharset(params, "UTF-8");
+		        HttpProtocolParams.setUserAgent(params, "Dasein Cloud");
+		        
+				
 
 				attempts++;
-				httpClientParams.setParameter(HttpMethodParams.USER_AGENT, "Dasein Cloud");
-				client = new HttpClient(httpClientParams);
-				if( provider.getProxyHost() != null ) {
-					client.getHostConfiguration().setProxy(provider.getProxyHost(), provider.getProxyPort());
-				}
+				
+				String proxyHost = provider.getProxyHost();
+	            if( proxyHost != null ) {
+	            	int proxyPort = provider.getProxyPort();
+	            	boolean ssl = url.startsWith("https");
+	                params.setParameter(ConnRoutePNames.DEFAULT_PROXY, new HttpHost(proxyHost, proxyPort, ssl ? "https" : "http"));
+	            }
 				for( Map.Entry<String, String> entry : headers.entrySet() ) {
-					method.addRequestHeader(entry.getKey(), entry.getValue());
+					method.addHeader(entry.getKey(), entry.getValue());
 				}
-				if (parameters != null ){
-					method.setQueryString(parameters);
-				}
-				if (body != null && body != "") {
+				if (body != null && body != "" && (methodType.equals(HttpMethodName.PUT) || methodType.equals(HttpMethodName.POST))) {
 					try {
-						RequestEntity entity = new StringRequestEntity(body,Terremark.XML, "utf-8");
-						((EntityEnclosingMethod) method).setRequestEntity(entity);
+						HttpEntity entity = new StringEntity(body, "UTF-8");
+						((HttpEntityEnclosingRequestBase) method).setEntity(entity);
 					} catch (UnsupportedEncodingException e) {
 						logger.warn(e);
 					}
 				}
 				if( wire.isDebugEnabled() ) {
-					if (parameters != null){
-						wire.debug(methodType.name() + " " + method.getPath() + "/?" + method.getQueryString());
-					}
-					else {
-						wire.debug(methodType.name() + " " + method.getPath());
-					}
-					for( Header header : method.getRequestHeaders() ) {
+
+					wire.debug(methodType.name() + " " + method.getURI());
+					for( Header header : method.getAllHeaders() ) {
 						wire.debug(header.getName() + ": " + header.getValue());
 					}
 					if (body != null) {
@@ -161,24 +182,20 @@ public class TerremarkMethod {
 					}
 				}
 				try {
-					status =  client.executeMethod(method);
+					status =  client.execute(method);
 					if( wire.isDebugEnabled() ) {
 						wire.debug("HTTP STATUS: " + status);
 					}
-				} 
-				catch( HttpException e ) {
-					logger.error("HTTP error from server: " + e.getMessage());
-					e.printStackTrace();
-					throw new CloudException(CloudErrorType.COMMUNICATION, 0, null, e.getMessage());
 				} 
 				catch( IOException e ) {
 					logger.error("I/O error from server communications: " + e.getMessage());
 					e.printStackTrace();
 					throw new InternalException(e);
 				}
-				if( status == HttpStatus.SC_OK || status == HttpStatus.SC_CREATED || status == HttpStatus.SC_ACCEPTED ) {
+				int statusCode = status.getStatusLine().getStatusCode();
+				if( statusCode == HttpStatus.SC_OK || statusCode == HttpStatus.SC_CREATED || statusCode == HttpStatus.SC_ACCEPTED ) {
 					try {
-						InputStream input = method.getResponseBodyAsStream();
+						InputStream input = status.getEntity().getContent();
 
 						try {
 							return parseResponse(input);
@@ -190,10 +207,10 @@ public class TerremarkMethod {
 					catch( IOException e ) {
 						logger.error("Error parsing response from Teremark: " + e.getMessage());
 						e.printStackTrace();
-						throw new CloudException(CloudErrorType.COMMUNICATION, status, null, e.getMessage());
+						throw new CloudException(CloudErrorType.COMMUNICATION, statusCode, null, e.getMessage());
 					}
 				}
-				else if ( status == HttpStatus.SC_NO_CONTENT ) {
+				else if ( statusCode == HttpStatus.SC_NO_CONTENT ) {
 					logger.debug("Recieved no content in response. Creating an empty doc.");
 					DocumentBuilderFactory dbfac = DocumentBuilderFactory.newInstance();
 					DocumentBuilder docBuilder = null;
@@ -204,32 +221,23 @@ public class TerremarkMethod {
 					}
 					return docBuilder.newDocument();
 				}
-				else if( status == HttpStatus.SC_FORBIDDEN ) {
+				else if( statusCode == HttpStatus.SC_FORBIDDEN ) {
 					String msg = "OperationNotAllowed ";
-					try {
-						msg += method.getResponseBodyAsString();
-					}
-					catch( IOException ioException ) {
-						logger.warn(ioException);
-					}
+					msg += status.getEntity().toString();
 					wire.error(msg);
-					throw new TerremarkException(status, "OperationNotAllowed", msg);
+					throw new TerremarkException(statusCode, "OperationNotAllowed", msg);
 				}
 				else {
 					if( logger.isDebugEnabled() ) {
 						logger.debug("Received " + status + " from " + url);
 					}
-					if( status == HttpStatus.SC_SERVICE_UNAVAILABLE || status == HttpStatus.SC_INTERNAL_SERVER_ERROR ) {
+					if( statusCode == HttpStatus.SC_SERVICE_UNAVAILABLE || statusCode == HttpStatus.SC_INTERNAL_SERVER_ERROR ) {
 						if( attempts >= 5 ) {
 							String msg;
 							String response = "";
-							try {
-								response = method.getResponseBodyAsString();
-								wire.warn(response);
-							} catch (IOException e) {
-								logger.warn(e);
-							}
-							if( status == HttpStatus.SC_SERVICE_UNAVAILABLE ) {
+							response = status.getEntity().toString();
+							wire.warn(response);
+							if( statusCode == HttpStatus.SC_SERVICE_UNAVAILABLE ) {
 								msg = "Cloud service is currently unavailable.";
 							}
 							else {
@@ -255,18 +263,17 @@ public class TerremarkMethod {
 						}
 					}
 					String msg = "";
-					try {
-						msg = "\nResponse from server was:\n" + method.getResponseBodyAsString();
-					}
-					catch( IOException ioException ) {
-						logger.warn(ioException);
-					}
+					msg = "\nResponse from server was:\n" + status.getEntity().toString();
 					wire.error(msg);
 					throw new CloudException("HTTP Status " + status + msg);
 				}
 			}
 			finally {
-				method.releaseConnection();
+				try {
+					EntityUtils.consume(status.getEntity());
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
 			}
 		}
 		finally {

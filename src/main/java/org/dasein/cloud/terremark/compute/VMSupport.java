@@ -28,10 +28,16 @@ import org.dasein.cloud.CloudException;
 import org.dasein.cloud.InternalException;
 import org.dasein.cloud.OperationNotSupportedException;
 import org.dasein.cloud.ProviderContext;
+import org.dasein.cloud.Requirement;
+import org.dasein.cloud.ResourceStatus;
 import org.dasein.cloud.Tag;
 import org.dasein.cloud.compute.Architecture;
+import org.dasein.cloud.compute.ImageClass;
 import org.dasein.cloud.compute.MachineImage;
 import org.dasein.cloud.compute.Platform;
+import org.dasein.cloud.compute.VMLaunchOptions;
+import org.dasein.cloud.compute.VMScalingCapabilities;
+import org.dasein.cloud.compute.VMScalingOptions;
 import org.dasein.cloud.compute.VirtualMachine;
 import org.dasein.cloud.compute.VirtualMachineProduct;
 import org.dasein.cloud.compute.VirtualMachineSupport;
@@ -123,7 +129,6 @@ public class VMSupport implements VirtualMachineSupport {
 	 * @throws InternalException an error occurred within the Dasein Cloud API implementation
 	 * @throws CloudException an error occurred within the cloud provider
 	 */
-	@Override
 	public void boot(@Nonnull String vmId) throws InternalException, CloudException {
 		String url = "/" + VIRTUAL_MACHINES + "/" + vmId + "/" + Terremark.ACTION + "/" + POWER_ON;
 		TerremarkMethod method = new TerremarkMethod(provider, HttpMethodName.POST, url, null, "");
@@ -199,7 +204,7 @@ public class VMSupport implements VirtualMachineSupport {
 		VirtualMachineProduct productMatch = null;
 		for( Architecture architecture : Architecture.values() ) {
 			for( VirtualMachineProduct product : listProducts(architecture) ) {
-				if( product.getProductId().equals(productId) ) {
+				if( product.getProviderProductId().equals(productId) ) {
 					productMatch =  product;
 				}
 			}
@@ -435,7 +440,7 @@ public class VMSupport implements VirtualMachineSupport {
 			Element unit = doc.createElement("Unit");
 			Element value = doc.createElement("Value");
 			unit.appendChild(doc.createTextNode("MB"));
-			value.appendChild(doc.createTextNode(Integer.toString(product.getRamInMb())));
+			//TODO: Fix. value.appendChild(doc.createTextNode(Integer.toString(product.getRamInMb())));
 			memory.appendChild(unit);
 			memory.appendChild(value);
 			rootElement.appendChild(memory);
@@ -663,7 +668,7 @@ public class VMSupport implements VirtualMachineSupport {
 			Element unit = doc.createElement("Unit");
 			Element value = doc.createElement("Value");
 			unit.appendChild(doc.createTextNode("MB"));
-			value.appendChild(doc.createTextNode(Integer.toString(product.getRamInMb())));
+			//TODO: Fix. value.appendChild(doc.createTextNode(Integer.toString(product.getRamInMb())));
 			memory.appendChild(unit);
 			memory.appendChild(value);
 			rootElement.appendChild(memory);
@@ -1007,13 +1012,13 @@ public class VMSupport implements VirtualMachineSupport {
 				for( int ram : new int[] { 512, 1024, 2048, 4096, 8192, 16384, 32768 } ) {
 					for (int disk : new int[] { 1, 10, 30, 50, 100, 256, 512 } ) {
 						VirtualMachineProduct product = new VirtualMachineProduct();
-
-						product.setProductId(cpu + ":" + ram + ":" + disk);
+//TODO: fix.
+						//product.setProductId(cpu + ":" + ram + ":" + disk);
 						product.setName(cpu + " CPU, " + ram + "MB RAM, " + disk + "GB Disk");
 						product.setDescription(cpu + " CPU, " + ram + "MB RAM, " + disk + "GB Disk");
 						product.setCpuCount(cpu);
-						product.setDiskSizeInGb(disk);
-						product.setRamInMb(ram);
+						//product.setDiskSizeInGb(disk);
+						//product.setRamInMb(ram);
 						sizes.add(product);
 					}
 				}
@@ -1357,15 +1362,15 @@ public class VMSupport implements VirtualMachineSupport {
 					}
 				}
 				String str = processorCount + ":" + mbRam + ":" + gbDisk;
-
-				product.setProductId(str);
+//TODO: Fix.
+				//product.setProductId(str);
 				product.setName(processorCount + " CPU, " + mbRam + "MB RAM, " + gbDisk + "GB Disk ");
 				product.setCpuCount(Integer.parseInt(processorCount));
-				product.setRamInMb(mbRam);
-				product.setDiskSizeInGb(gbDisk);
+				//product.setRamInMb(mbRam);
+				//product.setDiskSizeInGb(gbDisk);
 				product.setDescription(product.getName());
-				vm.setProduct(product);
-				logger.debug("toVirtualMachine(): ID = " + vm.getProviderVirtualMachineId() + " Product = " + vm.getProduct());
+				//vm.setProduct(product);
+				//logger.debug("toVirtualMachine(): ID = " + vm.getProviderVirtualMachineId() + " Product = " + vm.getProduct());
 			}
 			else if (childNode.getNodeName().equalsIgnoreCase("IpAddresses")){
 				Collection<String> addresses = new ArrayList<String>();
@@ -1558,6 +1563,187 @@ public class VMSupport implements VirtualMachineSupport {
 			}
 		}
 		return null;
+	}
+
+	@Override
+	public VirtualMachine alterVirtualMachine(String vmId,
+			VMScalingOptions options) throws InternalException, CloudException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public VMScalingCapabilities describeVerticalScalingCapabilities()
+			throws CloudException, InternalException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public int getCostFactor(VmState state) throws InternalException,
+			CloudException {
+		// TODO Auto-generated method stub
+		return 0;
+	}
+
+	@Override
+	public int getMaximumVirtualMachineCount() throws CloudException,
+			InternalException {
+		// TODO Auto-generated method stub
+		return 0;
+	}
+
+	@Override
+	public Requirement identifyImageRequirement(ImageClass cls)
+			throws CloudException, InternalException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public Requirement identifyPasswordRequirement() throws CloudException,
+			InternalException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public Requirement identifyRootVolumeRequirement() throws CloudException,
+			InternalException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public Requirement identifyShellKeyRequirement() throws CloudException,
+			InternalException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public Requirement identifyStaticIPRequirement() throws CloudException,
+			InternalException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public Requirement identifyVlanRequirement() throws CloudException,
+			InternalException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public boolean isAPITerminationPreventable() throws CloudException,
+			InternalException {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean isBasicAnalyticsSupported() throws CloudException,
+			InternalException {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean isExtendedAnalyticsSupported() throws CloudException,
+			InternalException {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean isUserDataSupported() throws CloudException,
+			InternalException {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public VirtualMachine launch(VMLaunchOptions withLaunchOptions)
+			throws CloudException, InternalException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public Iterable<Architecture> listSupportedArchitectures()
+			throws InternalException, CloudException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public Iterable<ResourceStatus> listVirtualMachineStatus()
+			throws InternalException, CloudException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public void resume(String vmId) throws CloudException, InternalException {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public void start(String vmId) throws InternalException, CloudException {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public void stop(String vmId) throws InternalException, CloudException {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public void stop(String vmId, boolean force) throws InternalException,
+			CloudException {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public boolean supportsPauseUnpause(VirtualMachine vm) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean supportsStartStop(VirtualMachine vm) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean supportsSuspendResume(VirtualMachine vm) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public void suspend(String vmId) throws CloudException, InternalException {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public void unpause(String vmId) throws CloudException, InternalException {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public void updateTags(String vmId, Tag... tags) throws CloudException,
+			InternalException {
+		// TODO Auto-generated method stub
+		
 	}
 
 }

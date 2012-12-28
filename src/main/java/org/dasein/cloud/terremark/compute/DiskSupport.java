@@ -19,8 +19,13 @@ import org.dasein.cloud.CloudException;
 import org.dasein.cloud.InternalException;
 import org.dasein.cloud.OperationNotSupportedException;
 import org.dasein.cloud.ProviderContext;
+import org.dasein.cloud.Requirement;
+import org.dasein.cloud.ResourceStatus;
 import org.dasein.cloud.compute.Platform;
 import org.dasein.cloud.compute.Volume;
+import org.dasein.cloud.compute.VolumeCreateOptions;
+import org.dasein.cloud.compute.VolumeFormat;
+import org.dasein.cloud.compute.VolumeProduct;
 import org.dasein.cloud.compute.VolumeState;
 import org.dasein.cloud.compute.VolumeSupport;
 import org.dasein.cloud.dc.DataCenter;
@@ -31,6 +36,8 @@ import org.dasein.cloud.terremark.TerremarkException;
 import org.dasein.cloud.terremark.TerremarkMethod;
 import org.dasein.cloud.terremark.TerremarkMethod.HttpMethodName;
 import org.dasein.util.CalendarWrapper;
+import org.dasein.util.uom.storage.Gigabyte;
+import org.dasein.util.uom.storage.Storage;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
@@ -271,6 +278,8 @@ public class DiskSupport implements VolumeSupport {
 
 	private Volume getDetachedDisk(String diskId) throws CloudException, InternalException {
 		Volume volume = null;
+		//TODO:Fix
+/*
 		String url = "/" + DETACHED_DISKS + "/" + diskId;
 		TerremarkMethod method = new TerremarkMethod(provider, HttpMethodName.GET, url, null, null);
 		Document doc = method.invoke();
@@ -319,6 +328,7 @@ public class DiskSupport implements VolumeSupport {
 				}
 			}
 		}
+		*/
 		return volume;
 	}
 
@@ -395,7 +405,8 @@ public class DiskSupport implements VolumeSupport {
 
 	private Collection<Volume> listDetachedDisks() throws InternalException, CloudException {
 		Collection<Volume> volumes = new ArrayList<Volume>();
-		String regionId = provider.getContext().getRegionId();
+		//TODO: fix.
+/*		String regionId = provider.getContext().getRegionId();
 		Collection<DataCenter> dcs = provider.getDataCenterServices().listDataCenters(regionId);
 		for (DataCenter dc : dcs) {
 			String url = "/" + DETACHED_DISKS + "/" + EnvironmentsAndComputePools.COMPUTE_POOLS + "/" +  dc.getProviderDataCenterId();
@@ -451,6 +462,7 @@ public class DiskSupport implements VolumeSupport {
 				}
 			}
 		}
+*/
 		return volumes;
 	}
 
@@ -476,6 +488,8 @@ public class DiskSupport implements VolumeSupport {
 
 	private Collection<Volume> getVirtualMachineDisks(String vmId) throws CloudException {
 		Collection<Volume> disks = new ArrayList<Volume>();
+		//TODO: Fix.
+/*
 		String url = "/" + VMSupport.VIRTUAL_MACHINES + "/" + vmId;
 		TerremarkMethod method = new TerremarkMethod(provider, HttpMethodName.GET, url, null, null);
 		Document doc = null;
@@ -562,6 +576,7 @@ public class DiskSupport implements VolumeSupport {
 				disks.add(disk);
 			}
 		}
+		*/
 		return disks;
 	}
 
@@ -588,5 +603,74 @@ public class DiskSupport implements VolumeSupport {
 	@Override
 	public String[] mapServiceAction(ServiceAction arg0) {
 		return new String[0];
+	}
+
+	@Override
+	public String createVolume(VolumeCreateOptions options)
+			throws InternalException, CloudException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public void detach(String volumeId, boolean force)
+			throws InternalException, CloudException {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public int getMaximumVolumeCount() throws InternalException, CloudException {
+		// TODO Auto-generated method stub
+		return 0;
+	}
+
+	@Override
+	public Storage<Gigabyte> getMaximumVolumeSize() throws InternalException,
+			CloudException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public Storage<Gigabyte> getMinimumVolumeSize() throws InternalException,
+			CloudException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public Requirement getVolumeProductRequirement() throws InternalException,
+			CloudException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public boolean isVolumeSizeDeterminedByProduct() throws InternalException,
+			CloudException {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public Iterable<VolumeFormat> listSupportedFormats()
+			throws InternalException, CloudException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public Iterable<VolumeProduct> listVolumeProducts()
+			throws InternalException, CloudException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public Iterable<ResourceStatus> listVolumeStatus()
+			throws InternalException, CloudException {
+		// TODO Auto-generated method stub
+		return null;
 	}
 }

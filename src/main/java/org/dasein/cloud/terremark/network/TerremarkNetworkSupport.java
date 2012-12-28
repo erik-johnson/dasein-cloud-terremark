@@ -12,8 +12,13 @@ import org.apache.log4j.Logger;
 import org.dasein.cloud.CloudException;
 import org.dasein.cloud.InternalException;
 import org.dasein.cloud.OperationNotSupportedException;
+import org.dasein.cloud.Requirement;
+import org.dasein.cloud.ResourceStatus;
 import org.dasein.cloud.identity.ServiceAction;
+import org.dasein.cloud.network.IPVersion;
+import org.dasein.cloud.network.NICCreateOptions;
 import org.dasein.cloud.network.NetworkInterface;
+import org.dasein.cloud.network.RoutingTable;
 import org.dasein.cloud.network.Subnet;
 import org.dasein.cloud.network.VLAN;
 import org.dasein.cloud.network.VLANState;
@@ -134,12 +139,6 @@ public class TerremarkNetworkSupport  implements VLANSupport {
     public boolean isVlanDataCenterConstrained() throws CloudException, InternalException{
 		return false;
 	}
-    
-	@Override
-    public @Nonnull Iterable<NetworkInterface> listNetworkInterfaces(@Nonnull String forVmId) throws CloudException, InternalException {
-    	Collection<NetworkInterface> interfaces = new ArrayList<NetworkInterface>(); //TODO: Implement this.
-    	return interfaces;
-	}
 	
     public @Nonnull NetworkInterface getNetworkInterface(@Nonnull String networkHostId) throws CloudException, InternalException {
     	NetworkInterface networkInterface = new NetworkInterface();
@@ -233,8 +232,8 @@ public class TerremarkNetworkSupport  implements VLANSupport {
 			}
 			else if (networkChild.getNodeName().equals("GatewayAddress")) {
 				String gateway = networkChild.getTextContent();
-				network.setGateway(gateway);
-				logger.debug("toVLAN(): VLAN ID = " + network.getProviderVlanId() + " Gateway = " + network.getGateway());
+				//TODO: FIX network.setGateway(gateway);
+				//logger.debug("toVLAN(): VLAN ID = " + network.getProviderVlanId() + " Gateway = " + network.getGateway());
 			}
 		}
 		network.setDnsServers(null);
@@ -259,9 +258,239 @@ public class TerremarkNetworkSupport  implements VLANSupport {
     public void removeVlan(String vlanId) throws CloudException, InternalException{
 		throw new OperationNotSupportedException("Network removal is not supported");
 	}
-    
+
 	@Override
-    public boolean supportsVlansWithSubnets() throws CloudException, InternalException {
+	public void addRouteToAddress(String toRoutingTableId, IPVersion version,
+			String destinationCidr, String address) throws CloudException,
+			InternalException {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public void addRouteToGateway(String toRoutingTableId, IPVersion version,
+			String destinationCidr, String gatewayId) throws CloudException,
+			InternalException {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public void addRouteToNetworkInterface(String toRoutingTableId,
+			IPVersion version, String destinationCidr, String nicId)
+			throws CloudException, InternalException {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public void addRouteToVirtualMachine(String toRoutingTableId,
+			IPVersion version, String destinationCidr, String vmId)
+			throws CloudException, InternalException {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public boolean allowsNewNetworkInterfaceCreation() throws CloudException,
+			InternalException {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public void assignRoutingTableToSubnet(String subnetId,
+			String routingTableId) throws CloudException, InternalException {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public void assignRoutingTableToVlan(String vlanId, String routingTableId)
+			throws CloudException, InternalException {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public void attachNetworkInterface(String nicId, String vmId, int index)
+			throws CloudException, InternalException {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public String createInternetGateway(String forVlanId)
+			throws CloudException, InternalException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public String createRoutingTable(String forVlanId, String name,
+			String description) throws CloudException, InternalException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public NetworkInterface createNetworkInterface(NICCreateOptions options)
+			throws CloudException, InternalException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public void detachNetworkInterface(String nicId) throws CloudException,
+			InternalException {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public int getMaxNetworkInterfaceCount() throws CloudException,
+			InternalException {
+		// TODO Auto-generated method stub
+		return 0;
+	}
+
+	@Override
+	public RoutingTable getRoutingTableForSubnet(String subnetId)
+			throws CloudException, InternalException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public Requirement getRoutingTableSupport() throws CloudException,
+			InternalException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public RoutingTable getRoutingTableForVlan(String vlanId)
+			throws CloudException, InternalException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public Requirement getSubnetSupport() throws CloudException,
+			InternalException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public boolean isNetworkInterfaceSupportEnabled() throws CloudException,
+			InternalException {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public Collection<String> listFirewallIdsForNIC(String nicId)
+			throws CloudException, InternalException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public Iterable<ResourceStatus> listNetworkInterfaceStatus()
+			throws CloudException, InternalException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public Iterable<NetworkInterface> listNetworkInterfaces()
+			throws CloudException, InternalException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public Iterable<NetworkInterface> listNetworkInterfacesForVM(String forVmId)
+			throws CloudException, InternalException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public Iterable<NetworkInterface> listNetworkInterfacesInSubnet(
+			String subnetId) throws CloudException, InternalException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public Iterable<NetworkInterface> listNetworkInterfacesInVLAN(String vlanId)
+			throws CloudException, InternalException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public Iterable<RoutingTable> listRoutingTables(String inVlanId)
+			throws CloudException, InternalException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public Iterable<IPVersion> listSupportedIPVersions() throws CloudException,
+			InternalException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public Iterable<ResourceStatus> listVlanStatus() throws CloudException,
+			InternalException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public void removeInternetGateway(String forVlanId) throws CloudException,
+			InternalException {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public void removeNetworkInterface(String nicId) throws CloudException,
+			InternalException {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public void removeRoute(String inRoutingTableId, String destinationCidr)
+			throws CloudException, InternalException {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public void removeRoutingTable(String routingTableId)
+			throws CloudException, InternalException {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public boolean supportsInternetGatewayCreation() throws CloudException,
+			InternalException {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean supportsRawAddressRouting() throws CloudException,
+			InternalException {
+		// TODO Auto-generated method stub
 		return false;
 	}
 

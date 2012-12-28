@@ -19,6 +19,7 @@ import javax.xml.transform.stream.StreamResult;
 import org.apache.log4j.Logger;
 import org.dasein.cloud.CloudException;
 import org.dasein.cloud.InternalException;
+import org.dasein.cloud.Requirement;
 import org.dasein.cloud.identity.SSHKeypair;
 import org.dasein.cloud.identity.ServiceAction;
 import org.dasein.cloud.identity.ShellKeySupport;
@@ -231,5 +232,19 @@ public class TerremarkKeypair  implements ShellKeySupport {
 		key.setProviderOwnerId(provider.getContext().getAccountNumber());
 		key.setProviderRegionId(provider.getContext().getRegionId());
 		return key;
+	}
+
+	@Override
+	public Requirement getKeyImportSupport() throws CloudException,
+			InternalException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public SSHKeypair importKeypair(String name, String publicKey)
+			throws InternalException, CloudException {
+		// TODO Auto-generated method stub
+		return null;
 	}
 }

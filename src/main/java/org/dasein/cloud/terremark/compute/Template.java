@@ -27,8 +27,12 @@ import org.dasein.cloud.CloudProvider;
 import org.dasein.cloud.InternalException;
 import org.dasein.cloud.OperationNotSupportedException;
 import org.dasein.cloud.ProviderContext;
+import org.dasein.cloud.Requirement;
+import org.dasein.cloud.ResourceStatus;
 import org.dasein.cloud.Tag;
 import org.dasein.cloud.compute.Architecture;
+import org.dasein.cloud.compute.ImageClass;
+import org.dasein.cloud.compute.ImageCreateOptions;
 import org.dasein.cloud.compute.MachineImage;
 import org.dasein.cloud.compute.MachineImageFormat;
 import org.dasein.cloud.compute.MachineImageState;
@@ -89,11 +93,6 @@ public class Template  implements MachineImageSupport {
 	@Override
 	public String[] mapServiceAction(ServiceAction arg0) {
 		return new String[0];
-	}
-
-	@Override
-	public void downloadImage(@Nonnull String machineImageId, @Nonnull OutputStream toOutput) throws CloudException, InternalException {
-		throw new OperationNotSupportedException("Not supported");
 	}
 
 	@Override
@@ -315,16 +314,6 @@ public class Template  implements MachineImageSupport {
 	}
 
 	@Override
-	public @Nonnull AsynchronousTask<String> imageVirtualMachineToStorage(String vmId, String name, String description, String directory) throws CloudException,InternalException {
-		throw new OperationNotSupportedException("Not supported");
-	}
-
-	@Override
-	public @Nonnull String installImageFromUpload(@Nonnull MachineImageFormat format, @Nonnull InputStream imageStream) throws CloudException, InternalException {
-		throw new OperationNotSupportedException("Not yet supported"); //TODO: Add this in 2013.01.
-	}
-
-	@Override
 	public boolean isImageSharedWithPublic(String machineImageId) throws CloudException, InternalException {
 		String imageType = null;
 		boolean isPublic = true;
@@ -538,11 +527,6 @@ public class Template  implements MachineImageSupport {
 	}
 
 	@Override
-	public String registerMachineImage(String atStorageLocation) throws CloudException, InternalException {
-		throw new OperationNotSupportedException("Not supported");
-	}
-
-	@Override
 	public void remove(@Nonnull String machineImageId) throws CloudException, InternalException {
 		if (machineImageId == null){
 			throw new InternalException("getMachineImage(): The image id is null");
@@ -633,8 +617,185 @@ public class Template  implements MachineImageSupport {
 	}
 
 	@Override
-	public @Nonnull String transfer(@Nonnull CloudProvider fromCloud, @Nonnull String machineImageId) throws CloudException, InternalException {
-		throw new OperationNotSupportedException("Not supported");
+	public void addImageShare(String providerImageId, String accountNumber)
+			throws CloudException, InternalException {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public void addPublicShare(String providerImageId) throws CloudException,
+			InternalException {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public String bundleVirtualMachine(String virtualMachineId,
+			MachineImageFormat format, String bucket, String name)
+			throws CloudException, InternalException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public void bundleVirtualMachineAsync(String virtualMachineId,
+			MachineImageFormat format, String bucket, String name,
+			AsynchronousTask<String> trackingTask) throws CloudException,
+			InternalException {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public MachineImage captureImage(ImageCreateOptions options)
+			throws CloudException, InternalException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public void captureImageAsync(ImageCreateOptions options,
+			AsynchronousTask<MachineImage> taskTracker) throws CloudException,
+			InternalException {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public MachineImage getImage(String providerImageId) throws CloudException,
+			InternalException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public String getProviderTermForImage(Locale locale, ImageClass cls) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public Requirement identifyLocalBundlingRequirement()
+			throws CloudException, InternalException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public Iterable<ResourceStatus> listImageStatus(ImageClass cls)
+			throws CloudException, InternalException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public Iterable<MachineImage> listImages(ImageClass cls)
+			throws CloudException, InternalException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public Iterable<MachineImage> listImages(ImageClass cls, String ownedBy)
+			throws CloudException, InternalException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public Iterable<MachineImageFormat> listSupportedFormatsForBundling()
+			throws CloudException, InternalException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public Iterable<ImageClass> listSupportedImageClasses()
+			throws CloudException, InternalException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public Iterable<MachineImageType> listSupportedImageTypes()
+			throws CloudException, InternalException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public MachineImage registerImageBundle(ImageCreateOptions options)
+			throws CloudException, InternalException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public void removeAllImageShares(String providerImageId)
+			throws CloudException, InternalException {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public void removeImageShare(String providerImageId, String accountNumber)
+			throws CloudException, InternalException {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public void removePublicShare(String providerImageId)
+			throws CloudException, InternalException {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public Iterable<MachineImage> searchImages(String accountNumber,
+			String keyword, Platform platform, Architecture architecture,
+			ImageClass... imageClasses) throws CloudException,
+			InternalException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public Iterable<MachineImage> searchPublicImages(String keyword,
+			Platform platform, Architecture architecture,
+			ImageClass... imageClasses) throws CloudException,
+			InternalException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public boolean supportsDirectImageUpload() throws CloudException,
+			InternalException {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean supportsImageCapture(MachineImageType type)
+			throws CloudException, InternalException {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean supportsPublicLibrary(ImageClass cls) throws CloudException,
+			InternalException {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public void updateTags(String imageId, Tag... tags) throws CloudException,
+			InternalException {
+		// TODO Auto-generated method stub
+		
 	}
 
 }

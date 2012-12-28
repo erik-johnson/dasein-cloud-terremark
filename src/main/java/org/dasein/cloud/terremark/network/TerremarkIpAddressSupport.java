@@ -22,10 +22,13 @@ import org.apache.log4j.Logger;
 import org.dasein.cloud.CloudException;
 import org.dasein.cloud.InternalException;
 import org.dasein.cloud.OperationNotSupportedException;
+import org.dasein.cloud.Requirement;
+import org.dasein.cloud.ResourceStatus;
 import org.dasein.cloud.compute.VirtualMachine;
 import org.dasein.cloud.identity.ServiceAction;
 import org.dasein.cloud.network.AddressType;
 import org.dasein.cloud.network.FirewallRule;
+import org.dasein.cloud.network.IPVersion;
 import org.dasein.cloud.network.IpAddress;
 import org.dasein.cloud.network.IpAddressSupport;
 import org.dasein.cloud.network.IpForwardingRule;
@@ -1259,45 +1262,6 @@ public class TerremarkIpAddressSupport  implements IpAddressSupport {
 
 	// Support for creating, deleting, listing firewall rules for a specific IP address
 
-	/**
-	 * Indicates whether the firewall rules are based on the ip address for the underlying cloud 
-	 */
-	@Override
-	public boolean isSupportFirewallRule(){
-		return false;
-	}
-
-	/**
-	 * Provides positive authorization for the specified firewall rule. Any call to this method should
-	 * result in an override of any previous revocations.
-	 * @param ipAddressId the unique, cloud-specific ID for the ip being targeted by the new rule
-	 * @param cidr the source CIDR (http://en.wikipedia.org/wiki/CIDR) for the allowed traffic
-	 * @param protocol the protocol (tcp/udp/icmp) supported by this rule
-	 * @param beginPort the beginning of the port range to be allowed, inclusive
-	 * @param endPort the end of the port range to be allowed, inclusive
-	 * @return the provider ID of the new rule
-	 * @throws CloudException an error occurred with the cloud provider establishing the rule
-	 * @throws InternalException an error occurred locally trying to establish the rule
-	 */
-	@Override
-	public String createFirewallRule(@Nonnull String ipAddressId, String cidr, Protocol protocol, int beginPort, int endPort) throws CloudException, InternalException {
-		throw new OperationNotSupportedException("IP based firewall rules are not supported");
-	}
-
-	/**
-	 * Revokes the specified access from the named firewall.
-	 * @param ipAddressId the Id of the IPAddress from which the rule is being revoked
-	 * @param cidr the source CIDR (http://en.wikipedia.org/wiki/CIDR) for the rule being removed
-	 * @param protocol the protocol (tcp/icmp/udp) of the rule being removed
-	 * @param beginPort the initial port of the rule being removed
-	 * @param endPort the end port of the rule being removed
-	 * @throws InternalException an error occurred locally independent of any events in the cloud
-	 * @throws CloudException an error occurred with the cloud provider while performing the operation
-	 */
-	@Override
-	public void deleteFirewallRule(@Nonnull String ipAddressId, @Nonnull String cidr, @Nonnull Protocol protocol, int beginPort, int endPort) throws CloudException, InternalException {
-		throw new OperationNotSupportedException("IP based firewall rules are not supported");
-	}
 
 	/**
 	 * Provides the affirmative rules supported by the named firewall.
@@ -1313,6 +1277,90 @@ public class TerremarkIpAddressSupport  implements IpAddressSupport {
 	@Override
 	public String[] mapServiceAction(ServiceAction action) {
 		return new String[0];
+	}
+
+	@Override
+	public void assignToNetworkInterface(String addressId, String nicId)
+			throws InternalException, CloudException {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public Requirement identifyVlanForVlanIPRequirement()
+			throws CloudException, InternalException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public boolean isAssigned(IPVersion version) throws CloudException,
+			InternalException {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean isForwarding(IPVersion version) throws CloudException,
+			InternalException {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean isRequestable(IPVersion version) throws CloudException,
+			InternalException {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public Iterable<IpAddress> listIpPool(IPVersion version,
+			boolean unassignedOnly) throws InternalException, CloudException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public Iterable<ResourceStatus> listIpPoolStatus(IPVersion version)
+			throws InternalException, CloudException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public Iterable<IPVersion> listSupportedIPVersions() throws CloudException,
+			InternalException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public String request(IPVersion version) throws InternalException,
+			CloudException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public String requestForVLAN(IPVersion version) throws InternalException,
+			CloudException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public String requestForVLAN(IPVersion version, String vlanId)
+			throws InternalException, CloudException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public boolean supportsVLANAddresses(IPVersion ofVersion)
+			throws InternalException, CloudException {
+		// TODO Auto-generated method stub
+		return false;
 	}
 
 }

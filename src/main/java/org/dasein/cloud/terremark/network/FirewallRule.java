@@ -21,12 +21,15 @@ import org.apache.log4j.Logger;
 import org.dasein.cloud.CloudException;
 import org.dasein.cloud.InternalException;
 import org.dasein.cloud.OperationNotSupportedException;
+import org.dasein.cloud.ResourceStatus;
 import org.dasein.cloud.identity.ServiceAction;
 import org.dasein.cloud.network.Direction;
 import org.dasein.cloud.network.Firewall;
 import org.dasein.cloud.network.FirewallSupport;
 import org.dasein.cloud.network.Permission;
 import org.dasein.cloud.network.Protocol;
+import org.dasein.cloud.network.RuleTarget;
+import org.dasein.cloud.network.RuleTargetType;
 import org.dasein.cloud.terremark.EnvironmentsAndComputePools;
 import org.dasein.cloud.terremark.Terremark;
 import org.dasein.cloud.terremark.TerremarkMethod;
@@ -283,7 +286,8 @@ public class FirewallRule implements FirewallSupport {
 	}
 
 	private org.dasein.cloud.network.FirewallRule toFirewallRule(Node firewallAcl) {
-		org.dasein.cloud.network.FirewallRule rule = new org.dasein.cloud.network.FirewallRule();
+		//TODO: FIX
+/*		org.dasein.cloud.network.FirewallRule rule = new org.dasein.cloud.network.FirewallRule();
 		rule.setFirewallId(provider.getContext().getRegionId());
 		String href = firewallAcl.getAttributes().getNamedItem(Terremark.HREF).getNodeValue();
 		String uri = FIREWALL_ACLS + "/";
@@ -362,6 +366,8 @@ public class FirewallRule implements FirewallSupport {
 
 		}
 		return rule;
+		*/
+		return null;
 	}
 
 	/**
@@ -402,6 +408,93 @@ public class FirewallRule implements FirewallSupport {
 	@Override
 	public void revoke(@Nonnull String firewallId, @Nonnull String cidr, @Nonnull Protocol protocol, int beginPort, int endPort) throws CloudException, InternalException {
 		throw new OperationNotSupportedException("Not yet implemented"); //TODO: Implement this.
+	}
+
+	@Override
+	public String authorize(String firewallId, Direction direction,
+			String source, Protocol protocol, int beginPort, int endPort)
+			throws CloudException, InternalException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public String authorize(String firewallId, Direction direction,
+			Permission permission, String source, Protocol protocol,
+			int beginPort, int endPort) throws CloudException,
+			InternalException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public String authorize(String firewallId, Direction direction,
+			Permission permission, String source, Protocol protocol,
+			RuleTarget target, int beginPort, int endPort)
+			throws CloudException, InternalException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public Iterable<ResourceStatus> listFirewallStatus()
+			throws InternalException, CloudException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public Iterable<RuleTargetType> listSupportedDestinationTypes(boolean inVlan)
+			throws InternalException, CloudException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public void revoke(String providerFirewallRuleId) throws InternalException,
+			CloudException {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public void revoke(String firewallId, Direction direction, String source,
+			Protocol protocol, int beginPort, int endPort)
+			throws CloudException, InternalException {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public void revoke(String firewallId, Direction direction,
+			Permission permission, String source, Protocol protocol,
+			int beginPort, int endPort) throws CloudException,
+			InternalException {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public void revoke(String firewallId, Direction direction,
+			Permission permission, String source, Protocol protocol,
+			RuleTarget target, int beginPort, int endPort)
+			throws CloudException, InternalException {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public boolean supportsRules(Direction direction, Permission permission,
+			boolean inVlan) throws CloudException, InternalException {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public boolean supportsFirewallSources() throws CloudException,
+			InternalException {
+		// TODO Auto-generated method stub
+		return false;
 	}
 
 }

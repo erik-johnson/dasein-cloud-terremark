@@ -238,7 +238,7 @@
 						</property>
 					</systemProperties>
 					<includes>
-						<!-- <include>**/TerremarkTestSuite.java</include> -->
+						<include>**/TerremarkTestSuite.java</include> 
 					</includes>
 				</configuration>
 			</plugin>
