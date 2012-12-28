@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Locale;
 
+import javax.annotation.Nonnull;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
@@ -28,6 +29,7 @@ import org.dasein.cloud.compute.VolumeFormat;
 import org.dasein.cloud.compute.VolumeProduct;
 import org.dasein.cloud.compute.VolumeState;
 import org.dasein.cloud.compute.VolumeSupport;
+import org.dasein.cloud.compute.VolumeType;
 import org.dasein.cloud.dc.DataCenter;
 import org.dasein.cloud.identity.ServiceAction;
 import org.dasein.cloud.terremark.EnvironmentsAndComputePools;
@@ -140,10 +142,23 @@ public class DiskSupport implements VolumeSupport {
 		}
 	}
 
+    /**
+     * Creating detached volumes is not supported in Terremark.
+     * @throws OperationNotSupportedException this method is not supported in Terremark
+     */
 	@Override
 	public String create(String fromSnapshot, int sizeInGb, String inZone) throws InternalException, CloudException {
 		throw new OperationNotSupportedException("Creating volumes is not supported");
 	}
+	
+    /**
+     * Creating detached volumes is not supported in Terremark.
+     * @throws OperationNotSupportedException this method is not supported in Terremark
+     */
+	@Override
+    public @Nonnull String createVolume(@Nonnull VolumeCreateOptions options) throws InternalException, CloudException {
+    	throw new OperationNotSupportedException("Creating volumes is not supported");
+    }
 
 	@Override
 	public void detach(String volumeId) throws InternalException, CloudException {
@@ -250,6 +265,18 @@ public class DiskSupport implements VolumeSupport {
 
 		}
 	}
+	
+    /**
+     * Detaches the specified volume from any virtual machines to which it might be attached with the option to
+     * force the detachment when some cloud state is preventing it.
+     * @param volumeId the unique ID of the volume to be detached
+     * @param force indicate whether or not the detach should be forced even if the VM is not releasing it
+     * @throws InternalException an error occurred in the Dasein Cloud implementation while performing the detachment
+     * @throws CloudException the detachment failed with the cloud provider
+     */
+    public void detach(@Nonnull String volumeId, boolean force) throws InternalException, CloudException {
+    	//TODO: Implement this.
+    }
 
 	@Override
 	public String getProviderTermForVolume(Locale locale) {
@@ -278,8 +305,6 @@ public class DiskSupport implements VolumeSupport {
 
 	private Volume getDetachedDisk(String diskId) throws CloudException, InternalException {
 		Volume volume = null;
-		//TODO:Fix
-/*
 		String url = "/" + DETACHED_DISKS + "/" + diskId;
 		TerremarkMethod method = new TerremarkMethod(provider, HttpMethodName.GET, url, null, null);
 		Document doc = method.invoke();
@@ -308,15 +333,17 @@ public class DiskSupport implements VolumeSupport {
 				else if (diskChild.getNodeName().equals("Size")) {
 					String unit = diskChild.getFirstChild().getTextContent();
 					String diskSize = diskChild.getLastChild().getTextContent();
+					int sizeInGb = 0;
 					if (unit.equalsIgnoreCase("GB")) {
-						volume.setSizeInGigabytes(Integer.parseInt(diskSize));
+						sizeInGb = Integer.parseInt(diskSize);
 					}
 					else if (unit.equalsIgnoreCase("MB")) {
-						volume.setSizeInGigabytes(Integer.parseInt(diskSize) / 1024);
+						sizeInGb = (Integer.parseInt(diskSize) / 1024);
 					}
 					else if (unit.equalsIgnoreCase("TB")) {
-						volume.setSizeInGigabytes(Integer.parseInt(diskSize) * 1024);
+						sizeInGb = (Integer.parseInt(diskSize) * 1024);
 					}
+					volume.setSize(new Storage<Gigabyte>(sizeInGb, Storage.GIGABYTE));
 				}
 				else if (diskChild.getNodeName().equals("Status")) {
 					if (diskChild.getTextContent().equals("Available")) {
@@ -328,7 +355,6 @@ public class DiskSupport implements VolumeSupport {
 				}
 			}
 		}
-		*/
 		return volume;
 	}
 
@@ -405,8 +431,7 @@ public class DiskSupport implements VolumeSupport {
 
 	private Collection<Volume> listDetachedDisks() throws InternalException, CloudException {
 		Collection<Volume> volumes = new ArrayList<Volume>();
-		//TODO: fix.
-/*		String regionId = provider.getContext().getRegionId();
+		String regionId = provider.getContext().getRegionId();
 		Collection<DataCenter> dcs = provider.getDataCenterServices().listDataCenters(regionId);
 		for (DataCenter dc : dcs) {
 			String url = "/" + DETACHED_DISKS + "/" + EnvironmentsAndComputePools.COMPUTE_POOLS + "/" +  dc.getProviderDataCenterId();
@@ -439,15 +464,17 @@ public class DiskSupport implements VolumeSupport {
 						if (diskChild.getNodeName().equals("Size")) {
 							String unit = diskChild.getFirstChild().getTextContent();
 							String diskSize = diskChild.getLastChild().getTextContent();
+							int sizeInGb = 0;
 							if (unit.equalsIgnoreCase("GB")) {
-								volume.setSizeInGigabytes(Integer.parseInt(diskSize));
+								sizeInGb = Integer.parseInt(diskSize);
 							}
 							else if (unit.equalsIgnoreCase("MB")) {
-								volume.setSizeInGigabytes(Integer.parseInt(diskSize) / 1024);
+								sizeInGb = (Integer.parseInt(diskSize) / 1024);
 							}
 							else if (unit.equalsIgnoreCase("TB")) {
-								volume.setSizeInGigabytes(Integer.parseInt(diskSize) * 1024);
+								sizeInGb = (Integer.parseInt(diskSize) * 1024);
 							}
+							volume.setSize(new Storage<Gigabyte>(sizeInGb, Storage.GIGABYTE));
 						}
 						else if (diskChild.getNodeName().equals("Status")) {
 							if (diskChild.getTextContent().equals("Available")) {
@@ -462,7 +489,6 @@ public class DiskSupport implements VolumeSupport {
 				}
 			}
 		}
-*/
 		return volumes;
 	}
 
@@ -488,8 +514,6 @@ public class DiskSupport implements VolumeSupport {
 
 	private Collection<Volume> getVirtualMachineDisks(String vmId) throws CloudException {
 		Collection<Volume> disks = new ArrayList<Volume>();
-		//TODO: Fix.
-/*
 		String url = "/" + VMSupport.VIRTUAL_MACHINES + "/" + vmId;
 		TerremarkMethod method = new TerremarkMethod(provider, HttpMethodName.GET, url, null, null);
 		Document doc = null;
@@ -555,28 +579,43 @@ public class DiskSupport implements VolumeSupport {
 					if (diskChild.getNodeName().equals("Index")) {
 						String diskIndex = diskChild.getTextContent();
 						disk.setProviderVolumeId(vmId + ":" + diskIndex);
+						if (diskIndex.equals("0")) {
+							disk.setRootVolume(true);
+							String os = doc.getElementsByTagName("OperatingSystem").item(0).getAttributes().getNamedItem(Terremark.NAME).getNodeValue();
+							disk.setGuestOperatingSystem(Platform.guess(os));
+						}
+						else {
+							disk.setRootVolume(false);
+						}
 					}
 					else if (diskChild.getNodeName().equals("Size")) {
 						String diskUnit = diskChild.getFirstChild().getTextContent();
 						String diskSize = diskChild.getLastChild().getTextContent();
-						if (diskUnit.equalsIgnoreCase("GB")){ // API Doc says disks use GB
-							disk.setSizeInGigabytes(Integer.parseInt(diskSize));
+						int sizeInGb = 0;
+						if (diskUnit.equalsIgnoreCase("GB")) { // API Doc says disks use GB
+							sizeInGb = Integer.parseInt(diskSize);
 						}
-						else if (diskUnit.equalsIgnoreCase("TB")){
-							disk.setSizeInGigabytes(Integer.parseInt(diskSize) * 1024);
+						else if (diskUnit.equalsIgnoreCase("MB")) {
+							sizeInGb = (Integer.parseInt(diskSize) / 1024);
 						}
-						else if (diskUnit.equalsIgnoreCase("MB")){
-							disk.setSizeInGigabytes(Integer.parseInt(diskSize) / 1024);
+						else if (diskUnit.equalsIgnoreCase("TB")) {
+							sizeInGb = (Integer.parseInt(diskSize) * 1024);
 						}
+						disk.setSize(new Storage<Gigabyte>(sizeInGb, Storage.GIGABYTE));
 					}
 					else if (diskChild.getNodeName().equals("Name")) {
 						disk.setName(diskChild.getTextContent());
 					}
 				}
+				disk.setDescription(disk.getName());
+				disk.setFormat(VolumeFormat.BLOCK);
+				
+				//disk.setProviderProductId(providerProductId); //TODO: Set this.
+				
+				disk.setType(VolumeType.HDD);
 				disks.add(disk);
 			}
 		}
-		*/
 		return disks;
 	}
 
@@ -605,24 +644,15 @@ public class DiskSupport implements VolumeSupport {
 		return new String[0];
 	}
 
+    /**
+     * Indicates the maximum number of volumes that may be provisioned in this account.
+     * @return the maximum number of volumes that may be provisioned, -1 for unlimited, or -2 for unknown
+     * @throws InternalException an error occurred within the Dasein Cloud implementation determining the limit
+     * @throws CloudException an error occurred retrieving the limit from the cloud
+     */
 	@Override
-	public String createVolume(VolumeCreateOptions options)
-			throws InternalException, CloudException {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	@Override
-	public void detach(String volumeId, boolean force)
-			throws InternalException, CloudException {
-		// TODO Auto-generated method stub
-		
-	}
-
-	@Override
-	public int getMaximumVolumeCount() throws InternalException, CloudException {
-		// TODO Auto-generated method stub
-		return 0;
+    public int getMaximumVolumeCount() throws InternalException, CloudException {
+		return -2; //TODO: Figure out what this should be.
 	}
 
 	@Override

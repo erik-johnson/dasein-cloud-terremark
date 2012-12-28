@@ -147,7 +147,7 @@ public class Terremark  extends AbstractCloud {
 	public final static String TMRK_URI              = "https://services.enterprisecloud.terremark.com";
 	public final static String URI_PATH              = "/cloudapi/ecloud";
 	public final static String LIVE_SPEC_URI_PATH    = "/cloudapi/spec";
-	public final static String DEFAULT_URI_PATH      = URI_PATH;  //TODO: Change this to URI_PATH
+	public final static String DEFAULT_URI_PATH      = URI_PATH;
 	public final static String JSON                  = "application/json";
 	public final static String XML                   = "application/xml";
 
@@ -425,11 +425,8 @@ public class Terremark  extends AbstractCloud {
 				}
 				logger.debug("Time ellapsed since task start time " + (System.currentTimeMillis() - startTime));
 				if( !complete ) {
-					if ((System.currentTimeMillis() - startTime) > timeout){
-						//TODO: Change this.
+					if ((System.currentTimeMillis() - startTime) > timeout) {
 						throw new InternalException("Timed out waiting for the task to complete.");
-						//complete = true;
-						//logger.debug("launch server task complete (timeout)");
 					}
 					try { Thread.sleep(sleepTime); }
 					catch( InterruptedException e ) { }
