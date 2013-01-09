@@ -19,6 +19,7 @@ import javax.xml.transform.stream.StreamResult;
 import org.apache.log4j.Logger;
 import org.dasein.cloud.CloudException;
 import org.dasein.cloud.InternalException;
+import org.dasein.cloud.OperationNotSupportedException;
 import org.dasein.cloud.Requirement;
 import org.dasein.cloud.identity.SSHKeypair;
 import org.dasein.cloud.identity.ServiceAction;
@@ -50,18 +51,13 @@ public class TerremarkKeypair  implements ShellKeySupport {
 		this.provider =  cloud;
 	}
 
-	@Override
-	public String[] mapServiceAction(ServiceAction arg0) {
-		return new String[0];
-	}
-
-	/**
-	 * Creates an SSH keypair having the specified name.
-	 * @param name the name of the SSH keypair
-	 * @return a new SSH keypair
-	 * @throws InternalException an error occurred within Dasein Cloud while processing the request
-	 * @throws CloudException an error occurred in the cloud provider executing the keypair creation
-	 */
+    /**
+     * Creates an SSH keypair having the specified name.
+     * @param name the name of the SSH keypair
+     * @return a new SSH keypair
+     * @throws InternalException an error occurred within Dasein Cloud while processing the request
+     * @throws CloudException an error occurred in the cloud provider executing the keypair creation
+     */
 	public @Nonnull SSHKeypair createKeypair(@Nonnull String name) throws InternalException, CloudException {
 		logger.trace("enter - createKeypair()");
 		SSHKeypair key = null;
@@ -136,6 +132,21 @@ public class TerremarkKeypair  implements ShellKeySupport {
 		return fingerprint;
 	}
 
+    /**
+     * Indicates to what degree key importing vs. creation is supported. If importing is not supported, then that
+     * means all keys must be created through the cloud provider via {@link #createKeypair(String)}. If importing is
+     * required, it means all key creation must be done by importing your keys through {@link #importKeypair(String, String)}.
+     * If optional, then you can either import or create keys. When you have the choice, it is always recommended that
+     * you import keys.
+     * @return the requirement state of importing key pairs
+     * @throws CloudException an error occurred with the cloud provider in determining support
+     * @throws InternalException a local error occurred while determining support
+     */
+	@Override
+	public Requirement getKeyImportSupport() throws CloudException, InternalException {
+		return Requirement.NONE;
+	}
+
 	/**
 	 * Fetches the specified keypair from the cloud provider. The cloud provider may or may not know
 	 * about the public key at this time, so be prepared for a null {@link SSHKeypair#getPublicKey()}.
@@ -176,6 +187,19 @@ public class TerremarkKeypair  implements ShellKeySupport {
 		return "SSH key";
 	}
 
+    /**
+     * Imports the specified public key into your store of keys with the cloud provider under the specified name.
+     * @param name the name of the key to be imported
+     * @param publicKey the MD5 public key fingerprint as specified in section 4 of RFC4716
+     * @return the unique ID of the key as it is stored with the cloud provider
+     * @throws InternalException a local error occurred assembling the request
+     * @throws CloudException an error occurred with the cloud provider while importing the keys
+     */
+	@Override
+	public SSHKeypair importKeypair(String name, String publicKey) throws InternalException, CloudException {
+		throw new OperationNotSupportedException("Importing keypairs is not supported in Terremark.");
+	}
+
 	/**
 	 * @return true if the cloud provider supports shell keypairs in the current region and the current account can use them
 	 * @throws CloudException an error occurred with the cloud provider while determining subscription status
@@ -210,6 +234,11 @@ public class TerremarkKeypair  implements ShellKeySupport {
 		return keys;
 	}
 
+	@Override
+	public String[] mapServiceAction(ServiceAction arg0) {
+		return new String[0];
+	}
+
 	private SSHKeypair toSSHKeypair(Node keyNode) {
 		SSHKeypair key = new SSHKeypair();
 		String keyId = Terremark.hrefToId(keyNode.getAttributes().getNamedItem(Terremark.HREF).getTextContent());
@@ -232,19 +261,5 @@ public class TerremarkKeypair  implements ShellKeySupport {
 		key.setProviderOwnerId(provider.getContext().getAccountNumber());
 		key.setProviderRegionId(provider.getContext().getRegionId());
 		return key;
-	}
-
-	@Override
-	public Requirement getKeyImportSupport() throws CloudException,
-			InternalException {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	@Override
-	public SSHKeypair importKeypair(String name, String publicKey)
-			throws InternalException, CloudException {
-		// TODO Auto-generated method stub
-		return null;
 	}
 }

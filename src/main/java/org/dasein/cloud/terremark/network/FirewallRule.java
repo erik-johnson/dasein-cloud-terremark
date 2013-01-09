@@ -43,24 +43,83 @@ public class FirewallRule implements FirewallSupport {
 
 	private Terremark provider = null;
 
-	FirewallRule(@Nonnull Terremark provider) {
-		this.provider = provider;
-	}
-
 	static private final Logger logger = Logger.getLogger(FirewallRule.class);
 
 	// API Calls
 	public final static String FIREWALL_ACLS        = "firewallAcls";
-	public final static String CREATE_FIREWALL_ACL  = "createFirewallAcl";
 
+	public final static String CREATE_FIREWALL_ACL  = "createFirewallAcl";
+	
 	// Response Tags
 	public final static String FIREWALL_ACL_TAG    = "FirewallAcl";
 
+	FirewallRule(@Nonnull Terremark provider) {
+		this.provider = provider;
+	}
+
+    /**
+     * Provides positive authorization for the specified firewall rule to global destinations. Any call to this method should
+     * result in an override of any previous revocations.
+     * @param firewallId the unique, cloud-specific ID for the firewall being targeted by the new rule
+     * @param direction the direction of the traffic governing the rule
+     * @param permission ALLOW or DENY
+     * @param source the source CIDR (http://en.wikipedia.org/wiki/CIDR) or provider firewall ID for the CIDR or other firewall being set
+     * @param protocol the protocol (tcp/udp/icmp) supported by this rule
+     * @param beginPort the beginning of the port range to be allowed, inclusive
+     * @param endPort the end of the port range to be allowed, inclusive
+     * @return the provider ID of the new rule
+     * @throws CloudException an error occurred with the cloud provider establishing the rule
+     * @throws InternalException an error occurred locally trying to establish the rule
+     * @throws OperationNotSupportedException the specified direction or permission are not supported or global destinations are not supported
+     */
 	@Override
-	public String[] mapServiceAction(ServiceAction action) {
-		return new String[0];
+	public String authorize(String firewallId, Direction direction, Permission permission, String source, Protocol protocol, int beginPort, int endPort) throws CloudException, InternalException {
+		// TODO Auto-generated method stub
+		return null;
 	}
 	
+    /**
+     * Provides positive authorization for the specified firewall rule. Any call to this method should
+     * result in an override of any previous revocations.
+     * @param firewallId the unique, cloud-specific ID for the firewall being targeted by the new rule
+     * @param direction the direction of the traffic governing the rule
+     * @param permission ALLOW or DENY
+     * @param source the source CIDR (http://en.wikipedia.org/wiki/CIDR) or provider firewall ID for the CIDR or other firewall being set
+     * @param protocol the protocol (tcp/udp/icmp) supported by this rule
+     * @param target the target to specify for this rule
+     * @param beginPort the beginning of the port range to be allowed, inclusive
+     * @param endPort the end of the port range to be allowed, inclusive
+     * @return the provider ID of the new rule
+     * @throws CloudException an error occurred with the cloud provider establishing the rule
+     * @throws InternalException an error occurred locally trying to establish the rule
+     * @throws OperationNotSupportedException the specified direction, target, or permission are not supported
+     */
+	@Override
+	public String authorize(String firewallId, Direction direction, Permission permission, String source, Protocol protocol, RuleTarget target, int beginPort, int endPort) throws CloudException, InternalException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+    /**
+     * Provides positive authorization to all destinations behind this firewall for the specified rule.
+     * Any call to this method should result in an override of any previous revocations.
+     * @param firewallId the unique, cloud-specific ID for the firewall being targeted by the new rule
+     * @param direction the direction of the traffic governing the rule                  
+     * @param source the source CIDR (http://en.wikipedia.org/wiki/CIDR) or provider firewall ID for the CIDR or other firewall being set
+     * @param protocol the protocol (tcp/udp/icmp) supported by this rule
+     * @param beginPort the beginning of the port range to be allowed, inclusive
+     * @param endPort the end of the port range to be allowed, inclusive
+     * @return the provider ID of the new rule
+     * @throws CloudException an error occurred with the cloud provider establishing the rule
+     * @throws InternalException an error occurred locally trying to establish the rule
+     * @throws OperationNotSupportedException the specified direction, ALLOW rules, or global destinations are not supported
+     */
+	@Override
+	public String authorize(String firewallId, Direction direction, String source, Protocol protocol, int beginPort, int endPort) throws CloudException, InternalException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
 	/**
 	 * Provides positive authorization for the specified firewall rule. Any call to this method should
 	 * result in an override of any previous revocations.
@@ -76,6 +135,31 @@ public class FirewallRule implements FirewallSupport {
 	@Override
 	public @Nonnull String authorize(@Nonnull String firewallId, @Nonnull String cidr, @Nonnull Protocol protocol, int beginPort, int endPort) throws CloudException, InternalException {
 		throw new OperationNotSupportedException("Not yet supported"); //TODO: Add support for this after a network id parameter gets added to cloud-core
+	}
+
+	/**
+	 * Not supported in Terremark.
+	 */
+	@Override
+	public @Nonnull String create(@Nonnull String name, @Nonnull String description) throws InternalException, CloudException {
+		throw new OperationNotSupportedException("Not supported.");
+	}
+
+
+	/**
+	 * Not supported in Terremark.
+	 */
+	@Override
+	public @Nonnull String createInVLAN(@Nonnull String name, @Nonnull String description, @Nonnull String providerVlanId) throws InternalException, CloudException {
+		throw new OperationNotSupportedException("Not supported");
+	}
+
+	/**
+	 * Not supported in Terremark.
+	 */
+	@Override
+	public void delete(@Nonnull String firewallId) throws InternalException, CloudException {
+
 	}
 
 	/**
@@ -194,31 +278,6 @@ public class FirewallRule implements FirewallSupport {
 	}
 
 	/**
-	 * Not supported in Terremark.
-	 */
-	@Override
-	public @Nonnull String create(@Nonnull String name, @Nonnull String description) throws InternalException, CloudException {
-		throw new OperationNotSupportedException("Not supported.");
-	}
-
-	/**
-	 * Not supported in Terremark.
-	 */
-	@Override
-	public @Nonnull String createInVLAN(@Nonnull String name, @Nonnull String description, @Nonnull String providerVlanId) throws InternalException, CloudException {
-		throw new OperationNotSupportedException("Not supported");
-	}
-
-
-	/**
-	 * Not supported in Terremark.
-	 */
-	@Override
-	public void delete(@Nonnull String firewallId) throws InternalException, CloudException {
-
-	}
-
-	/**
 	 * Provides the full firewall data for the specified firewall.
 	 * @param firewallId the unique ID of the desired firewall
 	 * @return the firewall state for the specified firewall instance
@@ -283,6 +342,190 @@ public class FirewallRule implements FirewallSupport {
 			rules = Collections.emptyList(); 
 		}
 		return rules;
+	}
+
+	/**
+	 * Identifies whether or not the current account is subscribed to firewall services in the current region.
+	 * @return true if the current account is subscribed to firewall services for the current region
+	 * @throws CloudException an error occurred with the cloud provider while determining subscription status
+	 * @throws InternalException an error occurred in the Dasein Cloud implementation while determining subscription status
+	 */
+	@Override
+	public boolean isSubscribed() throws CloudException, InternalException {
+		boolean subscribed = false;
+		try {
+			getRules(provider.getContext().getRegionId());
+			subscribed = true;
+		}
+		catch (Exception e) {
+			logger.warn("");
+		}
+		return subscribed;
+	}
+
+	/**
+	 * Lists all firewalls in the current provider context.
+	 * @return a list of all firewalls in the current provider context
+	 * @throws InternalException an error occurred locally independent of any events in the cloud
+	 * @throws CloudException an error occurred with the cloud provider while performing the operation
+	 */
+	@Override
+	public @Nonnull Collection<Firewall> list() throws InternalException, CloudException {
+		Collection<Firewall> firewalls = new ArrayList<Firewall>();
+		firewalls.add(getFirewall(provider.getContext().getRegionId()));
+		return firewalls;
+	}
+
+    /**
+     * Lists the status for all firewalls in the current provider context.
+     * @return the status for all firewalls in the current account
+     * @throws InternalException an error occurred locally independent of any events in the cloud
+     * @throws CloudException an error occurred with the cloud provider while performing the operation
+     */
+	@Override
+	public Iterable<ResourceStatus> listFirewallStatus() throws InternalException, CloudException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+    /**
+     * Describes what kinds of destinations may be named. A cloud must support at least one, but may support more
+     * than one.
+     * @param inVlan whether or not you are testing capabilities for VLAN firewalls
+     * @return a list of supported destinations
+     * @throws InternalException an error occurred locally independent of any events in the cloud
+     * @throws CloudException an error occurred with the cloud provider while performing the operation
+     */
+	@Override
+	public Iterable<RuleTargetType> listSupportedDestinationTypes(boolean inVlan) throws InternalException, CloudException {
+		Collection<RuleTargetType> destTypes = new ArrayList<RuleTargetType>();
+		destTypes.add(RuleTargetType.VM);
+		destTypes.add(RuleTargetType.VLAN);
+		destTypes.add(RuleTargetType.CIDR);
+		destTypes.add(RuleTargetType.GLOBAL);
+		return destTypes;
+	}
+
+	@Override
+	public String[] mapServiceAction(ServiceAction action) {
+		return new String[0];
+	}
+
+    /**
+     * Revokes the uniquely identified firewall rule.
+     * @param providerFirewallRuleId the unique ID of the firewall.
+     * @throws InternalException an error occurred locally independent of any events in the cloud
+     * @throws CloudException an error occurred with the cloud provider while performing the operation
+     */
+	@Override
+	public void revoke(String providerFirewallRuleId) throws InternalException, CloudException {
+		// TODO Auto-generated method stub
+		
+	}
+
+    /**
+     * Revokes the specified access from the named firewall.
+     * @param firewallId the firewall from which the rule is being revoked
+     * @param direction the direction of the traffic being revoked
+     * @param permission ALLOW or DENY
+     * @param source the source CIDR (http://en.wikipedia.org/wiki/CIDR) or provider firewall ID for the CIDR or other firewall being set
+     * @param protocol the protocol (tcp/icmp/udp) of the rule being removed
+     * @param beginPort the initial port of the rule being removed
+     * @param endPort the end port of the rule being removed
+     * @throws InternalException an error occurred locally independent of any events in the cloud
+     * @throws CloudException an error occurred with the cloud provider while performing the operation
+     */
+	@Override
+	public void revoke(String firewallId, Direction direction, Permission permission, String source, Protocol protocol, int beginPort, int endPort) throws CloudException, InternalException {
+		// TODO Auto-generated method stub
+		
+	}
+
+    /**
+     * Revokes the specified access from the named firewall.
+     * @param firewallId the firewall from which the rule is being revoked
+     * @param direction the direction of the traffic being revoked
+     * @param permission ALLOW or DENY
+     * @param source the source CIDR (http://en.wikipedia.org/wiki/CIDR) or provider firewall ID for the CIDR or other firewall being set
+     * @param protocol the protocol (tcp/icmp/udp) of the rule being removed
+     * @param target the target for traffic matching this rule
+     * @param beginPort the initial port of the rule being removed
+     * @param endPort the end port of the rule being removed
+     * @throws InternalException an error occurred locally independent of any events in the cloud
+     * @throws CloudException an error occurred with the cloud provider while performing the operation
+     */
+	@Override
+	public void revoke(String firewallId, Direction direction, Permission permission, String source, Protocol protocol, RuleTarget target, int beginPort, int endPort) throws CloudException, InternalException {
+		// TODO Auto-generated method stub
+		
+	}
+
+    /**
+     * Revokes the specified ALLOW access from the named firewall.
+     * @param firewallId the firewall from which the rule is being revoked
+     * @param direction the direction of the traffic being revoked                  
+     * @param source the source CIDR (http://en.wikipedia.org/wiki/CIDR) or provider firewall ID for the CIDR or other firewall being set
+     * @param protocol the protocol (tcp/icmp/udp) of the rule being removed
+     * @param beginPort the initial port of the rule being removed
+     * @param endPort the end port of the rule being removed
+     * @throws InternalException an error occurred locally independent of any events in the cloud
+     * @throws CloudException an error occurred with the cloud provider while performing the operation
+     */
+	@Override
+	public void revoke(String firewallId, Direction direction, String source, Protocol protocol, int beginPort, int endPort) throws CloudException, InternalException {
+		// TODO Auto-generated method stub
+		
+	}
+
+    /**
+     * Revokes the specified INGRESS + ALLOW access from the named firewall.
+     * @param firewallId the firewall from which the rule is being revoked
+     * @param source the source CIDR (http://en.wikipedia.org/wiki/CIDR) or provider firewall ID for the CIDR or other firewall being set
+     * @param protocol the protocol (tcp/icmp/udp) of the rule being removed
+     * @param beginPort the initial port of the rule being removed
+     * @param endPort the end port of the rule being removed
+     * @throws InternalException an error occurred locally independent of any events in the cloud
+     * @throws CloudException an error occurred with the cloud provider while performing the operation
+     */
+	@Override
+	public void revoke(@Nonnull String firewallId, @Nonnull String source, @Nonnull Protocol protocol, int beginPort, int endPort) throws CloudException, InternalException {
+		throw new OperationNotSupportedException("Not yet implemented"); //TODO: Implement this.
+	}
+
+    /**
+     * Indicates whether or not the sources you specify in your rules may be other firewalls (security group behavior).
+     * @return true if the sources may be other firewalls
+     * @throws CloudException an error occurred with the cloud provider while checking for support
+     * @throws InternalException a local error occurred while checking for support
+     */
+	@Override
+	public boolean supportsFirewallSources() throws CloudException, InternalException {
+		return false;
+	}
+
+    /**
+     * Indicates whether firewalls of the specified type (VLAN or flat network) support rules over the direction specified.
+     * @param direction the direction of the traffic
+     * @param permission the type of permission
+     * @param inVlan whether or not you are looking for support for VLAN or flat network traffic
+     * @return true if the cloud supports the creation of firewall rules in the direction specfied for the type of network specified
+     * @throws CloudException an error occurred with the cloud provider while checking for support
+     * @throws InternalException a local error occurred while checking for support
+     */
+	@Override
+	public boolean supportsRules(Direction direction, Permission permission, boolean inVlan) throws CloudException, InternalException {
+		boolean support = false;
+		if (inVlan == false) {
+			if (permission.equals(Permission.DENY)) {
+				if (direction.equals(Direction.INGRESS)) {
+					support = true;
+				}
+			}
+			else if (permission.equals(Permission.ALLOW)) {
+				support = true;
+			}
+		}
+		return support;
 	}
 
 	private org.dasein.cloud.network.FirewallRule toFirewallRule(Node firewallAcl) {
@@ -368,133 +611,6 @@ public class FirewallRule implements FirewallSupport {
 		return rule;
 		*/
 		return null;
-	}
-
-	/**
-	 * Identifies whether or not the current account is subscribed to firewall services in the current region.
-	 * @return true if the current account is subscribed to firewall services for the current region
-	 * @throws CloudException an error occurred with the cloud provider while determining subscription status
-	 * @throws InternalException an error occurred in the Dasein Cloud implementation while determining subscription status
-	 */
-	@Override
-	public boolean isSubscribed() throws CloudException, InternalException {
-		boolean subscribed = false;
-		try {
-			getRules(provider.getContext().getRegionId());
-			subscribed = true;
-		}
-		catch (Exception e) {
-			logger.warn("");
-		}
-		return subscribed;
-	}
-
-	/**
-	 * Lists all firewalls in the current provider context.
-	 * @return a list of all firewalls in the current provider context
-	 * @throws InternalException an error occurred locally independent of any events in the cloud
-	 * @throws CloudException an error occurred with the cloud provider while performing the operation
-	 */
-	@Override
-	public @Nonnull Collection<Firewall> list() throws InternalException, CloudException {
-		Collection<Firewall> firewalls = new ArrayList<Firewall>();
-		firewalls.add(getFirewall(provider.getContext().getRegionId()));
-		return firewalls;
-	}
-
-	/**
-	 * Not supported in Terremark.
-	 */
-	@Override
-	public void revoke(@Nonnull String firewallId, @Nonnull String cidr, @Nonnull Protocol protocol, int beginPort, int endPort) throws CloudException, InternalException {
-		throw new OperationNotSupportedException("Not yet implemented"); //TODO: Implement this.
-	}
-
-	@Override
-	public String authorize(String firewallId, Direction direction,
-			String source, Protocol protocol, int beginPort, int endPort)
-			throws CloudException, InternalException {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	@Override
-	public String authorize(String firewallId, Direction direction,
-			Permission permission, String source, Protocol protocol,
-			int beginPort, int endPort) throws CloudException,
-			InternalException {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	@Override
-	public String authorize(String firewallId, Direction direction,
-			Permission permission, String source, Protocol protocol,
-			RuleTarget target, int beginPort, int endPort)
-			throws CloudException, InternalException {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	@Override
-	public Iterable<ResourceStatus> listFirewallStatus()
-			throws InternalException, CloudException {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	@Override
-	public Iterable<RuleTargetType> listSupportedDestinationTypes(boolean inVlan)
-			throws InternalException, CloudException {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	@Override
-	public void revoke(String providerFirewallRuleId) throws InternalException,
-			CloudException {
-		// TODO Auto-generated method stub
-		
-	}
-
-	@Override
-	public void revoke(String firewallId, Direction direction, String source,
-			Protocol protocol, int beginPort, int endPort)
-			throws CloudException, InternalException {
-		// TODO Auto-generated method stub
-		
-	}
-
-	@Override
-	public void revoke(String firewallId, Direction direction,
-			Permission permission, String source, Protocol protocol,
-			int beginPort, int endPort) throws CloudException,
-			InternalException {
-		// TODO Auto-generated method stub
-		
-	}
-
-	@Override
-	public void revoke(String firewallId, Direction direction,
-			Permission permission, String source, Protocol protocol,
-			RuleTarget target, int beginPort, int endPort)
-			throws CloudException, InternalException {
-		// TODO Auto-generated method stub
-		
-	}
-
-	@Override
-	public boolean supportsRules(Direction direction, Permission permission,
-			boolean inVlan) throws CloudException, InternalException {
-		// TODO Auto-generated method stub
-		return false;
-	}
-
-	@Override
-	public boolean supportsFirewallSources() throws CloudException,
-			InternalException {
-		// TODO Auto-generated method stub
-		return false;
 	}
 
 }
