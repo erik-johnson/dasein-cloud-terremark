@@ -32,6 +32,7 @@ import org.dasein.cloud.terremark.compute.Template;
 import org.dasein.cloud.terremark.compute.TerremarkComputeServices;
 import org.dasein.cloud.terremark.identity.TerremarkIdentityServices;
 import org.dasein.cloud.terremark.network.TerremarkNetworkServices;
+import org.dasein.cloud.terremark.network.TerremarkNetworkSupport;
 import org.dasein.util.CalendarWrapper;
 import org.w3c.dom.Document;
 import org.w3c.dom.NamedNodeMap;
@@ -467,6 +468,16 @@ public class Terremark  extends AbstractCloud {
 
 	public static String hrefToId(String href) {
 		return href.substring(href.lastIndexOf("/")+1);
+	}
+	
+	/**
+	 * Converts a network or IP address href to the ID format (network_id or netowrk_id/ipv6 or network_id/ip_address or network_id/ipv6/ip_address).
+	 * @param href A network or IP address href
+	 * @return the network or IP address ID in the format network_id or netowrk_id/ipv6 or network_id/ip_address or network_id/ipv6/ip_address
+	 */
+	public static String hrefToNetworkId (String href) {
+		int beginIndex = href.indexOf(TerremarkNetworkSupport.NETWORKS + "/") + TerremarkNetworkSupport.NETWORKS.length() + 1;
+		return href.substring(beginIndex, href.length());
 	}
 
 	public static String getTemplateIdFromHref(String templateHref){

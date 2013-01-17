@@ -13,7 +13,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>org.dasein</groupId>
 	<artifactId>dasein-cloud-terremark</artifactId>
-	<version>2013.01-SNAPSHOT</version>
+	<version>2013.02</version>
 	<packaging>jar</packaging>
 	<name>dasein-cloud-terremark</name>
 	<description>    Implementation of the Dasein Cloud API for Terremark Enterprise Cloud and Terremark vCloud Express.  </description>
@@ -47,7 +47,7 @@
 		<dependency>
 			<groupId>org.dasein</groupId>
 			<artifactId>dasein-cloud-core</artifactId>
-			<version>2013.01</version>
+			<version>2013.02</version>
 			<scope>compile</scope>
 			<optional>false</optional>
 		</dependency>

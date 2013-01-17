@@ -18,6 +18,7 @@ import org.dasein.cloud.identity.ServiceAction;
 import org.dasein.cloud.network.IPVersion;
 import org.dasein.cloud.network.NICCreateOptions;
 import org.dasein.cloud.network.NetworkInterface;
+import org.dasein.cloud.network.Networkable;
 import org.dasein.cloud.network.RoutingTable;
 import org.dasein.cloud.network.Subnet;
 import org.dasein.cloud.network.VLAN;
@@ -46,6 +47,7 @@ public class TerremarkNetworkSupport  implements VLANSupport {
 	
 	// Types
 	public final static String NETWORK_TYPE       = "application/vnd.tmrk.cloud.network";
+	public final static String NETWORK_IPV6_TYPE  = "application/vnd.tmrk.cloud.network.ipv6";
 	public final static String NETWORK_HOST_TYPE  = "application/vnd.tmrk.cloud.networkHost";
 	
 	static Logger logger = Terremark.getLogger(TerremarkNetworkSupport.class);
@@ -65,8 +67,7 @@ public class TerremarkNetworkSupport  implements VLANSupport {
      */
 	@Override
 	public void addRouteToAddress(String toRoutingTableId, IPVersion version, String destinationCidr, String address) throws CloudException, InternalException {
-		// TODO Auto-generated method stub
-		
+		throw new OperationNotSupportedException("Routing tables not supported.");
 	}
     
     /**
@@ -80,8 +81,7 @@ public class TerremarkNetworkSupport  implements VLANSupport {
      */
 	@Override
 	public void addRouteToGateway(String toRoutingTableId, IPVersion version, String destinationCidr, String gatewayId) throws CloudException, InternalException {
-		// TODO Auto-generated method stub
-		
+		throw new OperationNotSupportedException("Routing tables not supported.");
 	}
 
     /**
@@ -95,8 +95,7 @@ public class TerremarkNetworkSupport  implements VLANSupport {
      */
 	@Override
 	public void addRouteToNetworkInterface(String toRoutingTableId, IPVersion version, String destinationCidr, String nicId) throws CloudException, InternalException {
-		// TODO Auto-generated method stub
-		
+		throw new OperationNotSupportedException("Routing tables not supported.");
 	}
     
     /**
@@ -110,8 +109,7 @@ public class TerremarkNetworkSupport  implements VLANSupport {
      */
 	@Override
 	public void addRouteToVirtualMachine(String toRoutingTableId, IPVersion version, String destinationCidr, String vmId) throws CloudException, InternalException {
-		// TODO Auto-generated method stub
-		
+		throw new OperationNotSupportedException("Routing tables not supported.");
 	}
     
     /**
@@ -123,7 +121,6 @@ public class TerremarkNetworkSupport  implements VLANSupport {
      */
 	@Override
 	public boolean allowsNewNetworkInterfaceCreation() throws CloudException, InternalException {
-		// TODO Auto-generated method stub
 		return false;
 	}
     
@@ -146,8 +143,7 @@ public class TerremarkNetworkSupport  implements VLANSupport {
      */
 	@Override
 	public void assignRoutingTableToSubnet(String subnetId, String routingTableId) throws CloudException, InternalException {
-		// TODO Auto-generated method stub
-		
+		throw new OperationNotSupportedException("Routing tables not supported.");
 	}
     
     /**
@@ -159,8 +155,7 @@ public class TerremarkNetworkSupport  implements VLANSupport {
      */
 	@Override
 	public void assignRoutingTableToVlan(String vlanId, String routingTableId) throws CloudException, InternalException {
-		// TODO Auto-generated method stub
-		
+		throw new OperationNotSupportedException("Routing tables not supported.");
 	}
     
     /**
@@ -187,8 +182,7 @@ public class TerremarkNetworkSupport  implements VLANSupport {
      */
 	@Override
 	public String createInternetGateway(String forVlanId) throws CloudException, InternalException {
-		// TODO Auto-generated method stub
-		return null;
+		throw new OperationNotSupportedException("Creating internet gateways not supported.");
 	}
     
     /**
@@ -201,8 +195,7 @@ public class TerremarkNetworkSupport  implements VLANSupport {
      */
 	@Override
 	public NetworkInterface createNetworkInterface(NICCreateOptions options) throws CloudException, InternalException {
-		// TODO Auto-generated method stub
-		return null;
+		throw new OperationNotSupportedException("Creating network interfaces is not supported.");
 	}
 
     /**
@@ -216,8 +209,7 @@ public class TerremarkNetworkSupport  implements VLANSupport {
      */
 	@Override
 	public String createRoutingTable(String forVlanId, String name, String description) throws CloudException, InternalException {
-		// TODO Auto-generated method stub
-		return null;
+		throw new OperationNotSupportedException("Routing tables not supported.");
 	}
 	
     @Override
@@ -250,8 +242,7 @@ public class TerremarkNetworkSupport  implements VLANSupport {
      */
 	@Override
 	public int getMaxNetworkInterfaceCount() throws CloudException, InternalException {
-		// TODO Auto-generated method stub
-		return 0;
+		return -2;
 	}
 	
 	@Override
@@ -308,8 +299,7 @@ public class TerremarkNetworkSupport  implements VLANSupport {
      */
 	@Override
 	public RoutingTable getRoutingTableForSubnet(String subnetId) throws CloudException, InternalException {
-		// TODO Auto-generated method stub
-		return null;
+		throw new OperationNotSupportedException("Routing tables and subnets not supported.");
 	}
 
     /**
@@ -322,8 +312,7 @@ public class TerremarkNetworkSupport  implements VLANSupport {
      */
 	@Override
 	public RoutingTable getRoutingTableForVlan(String vlanId) throws CloudException, InternalException {
-		// TODO Auto-generated method stub
-		return null;
+		throw new OperationNotSupportedException("Routing tables not supported.");
 	}
 
     /**
@@ -334,8 +323,7 @@ public class TerremarkNetworkSupport  implements VLANSupport {
      */
 	@Override
 	public Requirement getRoutingTableSupport() throws CloudException, InternalException {
-		// TODO Auto-generated method stub
-		return null;
+		return Requirement.NONE;
 	}
 
 	@Override
@@ -388,8 +376,7 @@ public class TerremarkNetworkSupport  implements VLANSupport {
      */
 	@Override
 	public boolean isNetworkInterfaceSupportEnabled() throws CloudException, InternalException {
-		// TODO Auto-generated method stub
-		return false;
+		return true;
 	}
 
 	@Override
@@ -454,8 +441,7 @@ public class TerremarkNetworkSupport  implements VLANSupport {
      */
 	@Override
 	public Iterable<NetworkInterface> listNetworkInterfacesInSubnet(String subnetId) throws CloudException, InternalException {
-		// TODO Auto-generated method stub
-		return null;
+		throw new OperationNotSupportedException("Subnets not supported.");
 	}
 
     /**
@@ -484,6 +470,20 @@ public class TerremarkNetworkSupport  implements VLANSupport {
 	}
 
     /**
+     * Lists all resources associated with the specified VLAN. In many clouds, this is a very expensive operation. So
+     * call this method with care.
+     * @param inVlanId the VLAN for whom you are seeking the resource list
+     * @return a list of resources associated with the specified VLAN
+     * @throws CloudException an error occurred in the cloud identifying the matching resources
+     * @throws InternalException a local error occurred constructing the cloud query
+     */
+	@Override
+	public Iterable<Networkable> listResources(String inVlanId) throws CloudException, InternalException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	/**
      * Lists all routing tables associated with the specified VLAN. 
      * @param inVlanId the VLAN ID whose routing tables are being sought
      * @return a list of routing tables for the specified VLAN
@@ -492,11 +492,10 @@ public class TerremarkNetworkSupport  implements VLANSupport {
      */
 	@Override
 	public Iterable<RoutingTable> listRoutingTables(String inVlanId) throws CloudException, InternalException {
-		// TODO Auto-generated method stub
-		return null;
+		throw new OperationNotSupportedException("Routing tables not supported.");
 	}
 
-	@Override
+    @Override
     public @Nonnull Iterable<Subnet> listSubnets(@Nonnull String inVlanId) throws CloudException, InternalException{
 		return Collections.emptyList();
 	}
@@ -509,8 +508,10 @@ public class TerremarkNetworkSupport  implements VLANSupport {
      */
 	@Override
 	public Iterable<IPVersion> listSupportedIPVersions() throws CloudException, InternalException {
-		// TODO Auto-generated method stub
-		return null;
+		Collection<IPVersion> versions = new ArrayList<IPVersion>();
+		versions.add(IPVersion.IPV4);
+		versions.add(IPVersion.IPV6);
+		return versions;
 	}
 
     /**
@@ -543,7 +544,7 @@ public class TerremarkNetworkSupport  implements VLANSupport {
 		return vlans;
 	}
 
-    /**
+	/**
      * Lists the status of all VLANs in the current region.
      * @return the status of all VLANs in the current region
      * @throws CloudException an error occurred communicating with the cloud provider
@@ -555,7 +556,7 @@ public class TerremarkNetworkSupport  implements VLANSupport {
 		return null;
 	}
 
-	@Override
+    @Override
 	public String[] mapServiceAction(ServiceAction action) {
 		return new String[0];
 	}
@@ -568,8 +569,7 @@ public class TerremarkNetworkSupport  implements VLANSupport {
      */
 	@Override
 	public void removeInternetGateway(String forVlanId) throws CloudException, InternalException {
-		// TODO Auto-generated method stub
-		
+		throw new OperationNotSupportedException("Removing internet gateways not supported.");
 	}
 
     /**
@@ -580,8 +580,7 @@ public class TerremarkNetworkSupport  implements VLANSupport {
      */
 	@Override
 	public void removeNetworkInterface(String nicId) throws CloudException, InternalException {
-		// TODO Auto-generated method stub
-		
+		throw new OperationNotSupportedException("De-provisioning network interfaces is not supported.");
 	}
 
     /**
@@ -593,11 +592,10 @@ public class TerremarkNetworkSupport  implements VLANSupport {
      */
 	@Override
 	public void removeRoute(String inRoutingTableId, String destinationCidr) throws CloudException, InternalException {
-		// TODO Auto-generated method stub
-		
+		throw new OperationNotSupportedException("Routing tables not supported.");
 	}
 
-    /**
+	/**
      * Removes the specified routing table from the cloud.
      * @param routingTableId the unique ID of the routing table to be removed
      * @throws CloudException an error occurred in the cloud removing the routing table
@@ -605,8 +603,7 @@ public class TerremarkNetworkSupport  implements VLANSupport {
      */
 	@Override
 	public void removeRoutingTable(String routingTableId) throws CloudException, InternalException {
-		// TODO Auto-generated method stub
-		
+		throw new OperationNotSupportedException("Routing tables not supported.");
 	}
 
 	@Override
@@ -614,7 +611,7 @@ public class TerremarkNetworkSupport  implements VLANSupport {
 		throw new OperationNotSupportedException("Subnets not supported");
 	}
 
-	@Override
+    @Override
     public void removeVlan(String vlanId) throws CloudException, InternalException{
 		throw new OperationNotSupportedException("Network removal is not supported");
 	}
@@ -628,11 +625,10 @@ public class TerremarkNetworkSupport  implements VLANSupport {
      */
 	@Override
 	public boolean supportsInternetGatewayCreation() throws CloudException, InternalException {
-		// TODO Auto-generated method stub
 		return false;
 	}
 
-    /**
+	/**
      * Indicates whether you can specify a raw IP address as a target for your routing table.
      * @return true if you can specify raw addresses, false if you need to specify other resources
      * @throws CloudException an error occurred identifying support
@@ -640,8 +636,7 @@ public class TerremarkNetworkSupport  implements VLANSupport {
      */
 	@Override
 	public boolean supportsRawAddressRouting() throws CloudException, InternalException {
-		// TODO Auto-generated method stub
-		return false;
+		throw new OperationNotSupportedException("Routing tables not supported.");
 	}
 
 	private NetworkInterface toNetworkInterface(Node networkHostNode) {
@@ -670,7 +665,7 @@ public class TerremarkNetworkSupport  implements VLANSupport {
 		return networkInterface;
     }
 
-	private VLAN toVLAN(Node networkNode) throws CloudException, InternalException {
+    private VLAN toVLAN(Node networkNode) throws CloudException, InternalException {
 		VLAN network = new VLAN();
 		network.setProviderOwnerId(provider.getContext().getAccountNumber());
 		NamedNodeMap networkAttrs = networkNode.getAttributes();
@@ -690,13 +685,17 @@ public class TerremarkNetworkSupport  implements VLANSupport {
 			Node networkChild = networkChildren.item(i);
 			if (networkChild.getNodeName().equals("NetworkType")) {
 				String type = networkChild.getTextContent();
+				boolean ipv6 = networkAttrs.getNamedItem(Terremark.TYPE).getTextContent().equals(NETWORK_IPV6_TYPE);
+				if (ipv6) {
+					type = type + " IPv6";
+				}
+				else {
+					type = type + " IPv4";
+				}
+				network.setNetworkType(type);
 				network.setDescription(type);
 				logger.debug("toVLAN(): VLAN ID = " + network.getProviderVlanId() + " Description = " + network.getDescription());
-			}
-			else if (networkChild.getNodeName().equals("GatewayAddress")) {
-				String gateway = networkChild.getTextContent();
-				//TODO: FIX network.setGateway(gateway);
-				//logger.debug("toVLAN(): VLAN ID = " + network.getProviderVlanId() + " Gateway = " + network.getGateway());
+				break;
 			}
 		}
 		network.setDnsServers(null);
@@ -704,6 +703,7 @@ public class TerremarkNetworkSupport  implements VLANSupport {
 		network.setNtpServers(null);
 		network.setProviderDataCenterId(null);
 		network.setTags(null);
+
 		return network;
 	}
 

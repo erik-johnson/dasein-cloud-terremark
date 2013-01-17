@@ -47,11 +47,13 @@ import org.dasein.cloud.compute.VirtualMachineSupport;
 import org.dasein.cloud.compute.VmState;
 import org.dasein.cloud.compute.VmStatistics;
 import org.dasein.cloud.compute.Volume;
+import org.dasein.cloud.compute.VolumeCreateOptions;
 import org.dasein.cloud.identity.SSHKeypair;
 import org.dasein.cloud.identity.ServiceAction;
 import org.dasein.cloud.network.Firewall;
 import org.dasein.cloud.network.IPVersion;
 import org.dasein.cloud.network.NetworkInterface;
+import org.dasein.cloud.network.RawAddress;
 import org.dasein.cloud.network.VLAN;
 import org.dasein.cloud.terremark.EnvironmentsAndComputePools;
 import org.dasein.cloud.terremark.Layout;
@@ -108,6 +110,8 @@ public class VMSupport implements VirtualMachineSupport {
 	//Layout Names
 	public final static String ROW_NAME                = "Dasein Cloud Row";
 	public final static String GROUP_NAME              = "Dasein Cloud Group";
+
+	public final static String DEFAULT_ROOT_USER       = "ecloud";
 
 	public final static long DEFAULT_SLEEP             = CalendarWrapper.SECOND * 30;
 	public final static long DEFAULT_TIMEOUT           = CalendarWrapper.MINUTE * 45;
@@ -177,20 +181,21 @@ public class VMSupport implements VirtualMachineSupport {
 	@Override
 	public VirtualMachine alterVirtualMachine(String vmId, VMScalingOptions options) throws InternalException, CloudException {
 		String productString = options.getProviderProductId();
+		VolumeCreateOptions[] newVolumes = options.getVolumes();
 		// product id format cpu:ram:disk
 		String cpuCount;
 		String ramSize;
-		String volumeSizes;
+		String rootVolumeSize;
 		String[] productIds = productString.split(":");
 		if (productIds.length == 3) {
 			cpuCount = productIds[0];
 			ramSize = productIds[1];
-			volumeSizes = productIds[2].replace("[", "").replace("]", "");
+			rootVolumeSize = productIds[2];
 		}
 		else {
 			throw new InternalError("Invalid product id string");
 		}
-		String[] diskSizes = volumeSizes.split(",");
+		int rootVolumeInt = Integer.parseInt(rootVolumeSize);
 		String cpuOptions = "1,2,4,8";
 		if (!cpuOptions.contains(cpuCount)) {
 			throw new InternalException("Processor count must be 1, 2, 4, or 8");
@@ -199,26 +204,71 @@ public class VMSupport implements VirtualMachineSupport {
 		if(ramInt % 4 != 0) {
 			throw new InternalException("Memory size must be a multiple of four");
 		}
-		VirtualMachine vm = getVirtualMachine(vmId);
-		if (vm == null || vm.getCurrentState() == VmState.TERMINATED) {
-			throw new InternalException("Failed to find deployed vm: " + vmId);
+		VirtualMachine vm = null;
+		
+		if (newVolumes.length < 1) {
+			throw new InternalException("Can't remove the root volume.");
 		}
 
-		Collection<Volume> volumes = provider.getComputeServices().getVolumeSupport().getVirtualMachineDisks(vmId);
+		Collection<Volume> oldVolumes = provider.getComputeServices().getVolumeSupport().getVirtualMachineDisks(vmId);
+		Iterator<Volume> oldVolumesItr = oldVolumes.iterator();
+		ArrayList<String> diskSizes = new ArrayList<String>();
 
-		Iterator<Volume> volumeItr = volumes.iterator();
-		for (String diskSize : diskSizes) {
-			int oldDiskSize = 0;
-			if (volumeItr.hasNext()) {
-				oldDiskSize = volumeItr.next().getSizeInGigabytes();
+		int diskIndex = 0;
+		for (VolumeCreateOptions newVolume : newVolumes) {
+			int oldDiskSize = -1;
+			int newDiskSize = newVolume.getVolumeSize().intValue();
+			Volume oldDisk = null;
+			if (oldVolumesItr.hasNext()) {
+				oldDisk = oldVolumesItr.next();
+				oldDiskSize = oldDisk.getSizeInGigabytes();
 			}
-			int newDiskSize = Integer.parseInt(diskSize);
+			
+			if (diskIndex == 0) {
+				if (rootVolumeInt != newDiskSize) {
+					throw new InternalException("The product id root volume size does not match the size specified in the volumes to resize.");
+				}
+			}
+
 			if (newDiskSize > 512) {
 				throw new InternalException("Each disk size must be 512 GB or less");
 			}
-			if (oldDiskSize > 0 && newDiskSize < oldDiskSize) {
+			else if (oldDiskSize > 0 && newDiskSize < oldDiskSize) {
 				throw new InternalException("Disk capacity may not be reduced.");
 			}
+			else {
+				diskSizes.add(String.valueOf(newDiskSize));
+			}
+			diskIndex++;
+		}
+
+		if (diskSizes.size() > 15) {
+			throw new InternalException("Maximum of 15 volumes allowed per virtual machine");
+		}
+		
+		long timeout = System.currentTimeMillis() + (CalendarWrapper.MINUTE * 30L);
+
+		while( timeout > System.currentTimeMillis() ) {
+			try {
+				vm = provider.getComputeServices().getVirtualMachineSupport().getVirtualMachine(vmId);
+				if( vm == null  || vm.getCurrentState() == VmState.TERMINATED) {
+					break;
+				}
+				if( VmState.STOPPED.equals(vm.getCurrentState()) ) {
+					break;
+				}
+				else if ( VmState.RUNNING.equals(vm.getCurrentState()) ) {
+					provider.getComputeServices().getVirtualMachineSupport().stop(vm.getProviderVirtualMachineId());
+				}
+			}
+			catch( Throwable error ) {
+				logger.warn(error.getMessage());
+			}
+			try { Thread.sleep(15000L); }
+			catch( InterruptedException ignore ) { }
+		}
+		if( vm == null ) {
+			throw new CloudException("Failed to find deployed vm: " + vmId);
 		}
 
 		String url = "/" + VIRTUAL_MACHINES + "/" + vmId + "/hardwareConfiguration";
@@ -235,7 +285,7 @@ public class VMSupport implements VirtualMachineSupport {
 			Element processorCountElement = doc.createElement("ProcessorCount");
 			processorCountElement.appendChild(doc.createTextNode(cpuCount));
 			rootElement.appendChild(processorCountElement);
-			
+
 			Element memoryElement = doc.createElement("Memory");
 			Element memoryUnitElement = doc.createElement("Unit");
 			memoryUnitElement.appendChild(doc.createTextNode("MB"));
@@ -244,24 +294,24 @@ public class VMSupport implements VirtualMachineSupport {
 			memoryValueElement.appendChild(doc.createTextNode(ramSize));
 			memoryElement.appendChild(memoryValueElement);
 			rootElement.appendChild(memoryElement);
-			
+
 			Element disksElement = doc.createElement("Disks");
 			for (String diskSize : diskSizes) {
 				Element diskElement = doc.createElement("Disk");
 				Element diskSizeElement = doc.createElement("Size");
-				
+
 				Element diskUnitElement = doc.createElement("Unit");
 				diskUnitElement.appendChild(doc.createTextNode("GB"));
 				diskSizeElement.appendChild(diskUnitElement);
 				Element diskValueElement = doc.createElement("Value");
 				diskValueElement.appendChild(doc.createTextNode(diskSize));
 				diskSizeElement.appendChild(diskValueElement);
-				
+
 				diskElement.appendChild(diskSizeElement);
 				disksElement.appendChild(diskElement);
 			}
 			rootElement.appendChild(disksElement);
-			
+
 			Element nicsElement = doc.createElement("Nics");
 			int nicCount = Integer.parseInt((String) vm.getTag("nic-count"));
 			for (int i=0; i<nicCount; i++) {
@@ -272,21 +322,21 @@ public class VMSupport implements VirtualMachineSupport {
 				String nicNetworkName = nicInfo[2];
 				String nicNetworkType = nicInfo[3];
 				Element nicElement = doc.createElement("Nic");
-				
+
 				Element unitNumberElement = doc.createElement("UnitNumber");
 				unitNumberElement.appendChild(doc.createTextNode(nicNumber));
 				nicElement.appendChild(unitNumberElement);
-				
+
 				Element networkElement = doc.createElement("Network");
 				networkElement.setAttribute(Terremark.HREF, nicNetworkHref);
 				networkElement.setAttribute(Terremark.NAME, nicNetworkName);
 				networkElement.setAttribute(Terremark.TYPE, nicNetworkType);
 				nicElement.appendChild(networkElement);
-				
+
 				nicsElement.appendChild(nicElement);
 			}
 			rootElement.appendChild(nicsElement);
-			
+
 			doc.appendChild(rootElement);
 
 			StringWriter stw = new StringWriter(); 
@@ -304,7 +354,7 @@ public class VMSupport implements VirtualMachineSupport {
 			String taskHref = Terremark.getTaskHref(doc, CONFIGURE_OPERATION);
 			provider.waitForTask(taskHref, DEFAULT_SLEEP, DEFAULT_TIMEOUT);
 		}
-		
+
 		return getVirtualMachine(vmId);
 	}
 
@@ -328,7 +378,7 @@ public class VMSupport implements VirtualMachineSupport {
 				String networkHref = Terremark.DEFAULT_URI_PATH + "/" + TerremarkNetworkSupport.NETWORKS + "/" + networkId;
 				networkElement.setAttribute(Terremark.HREF, networkHref);
 				networkElement.setAttribute(Terremark.TYPE, TerremarkNetworkSupport.NETWORK_TYPE);
-
+				//TODO: Add support for IPV6 networks.
 
 				Element ipAddressesElement = doc.createElement("IpAddresses");
 				List<String> ipAddressesToAssign = networksToAssign.get(networkId);
@@ -363,22 +413,6 @@ public class VMSupport implements VirtualMachineSupport {
 	}
 
 	/**
-	 * Boots up a pre-defined virtual machine. This works only for systems that support persistent servers that
-	 * can be paused.
-	 * @param vmId the virtual machine to boot up
-	 * @throws InternalException an error occurred within the Dasein Cloud API implementation
-	 * @throws CloudException an error occurred within the cloud provider
-	 * @deprecated
-	 */
-	public void boot(@Nonnull String vmId) throws InternalException, CloudException {
-		String url = "/" + VIRTUAL_MACHINES + "/" + vmId + "/" + Terremark.ACTION + "/" + POWER_ON;
-		TerremarkMethod method = new TerremarkMethod(provider, HttpMethodName.POST, url, null, "");
-		Document doc = method.invoke();
-		String taskHref = Terremark.getTaskHref(doc, POWER_ON_OPERATION);
-		provider.waitForTask(taskHref, DEFAULT_SLEEP, DEFAULT_TIMEOUT);
-	}
-
-	/**
 	 * Clones an existing virtual machine into a new copy.
 	 * @param vmId the ID of the server to be cloned
 	 * @param intoDcId the ID of the data center in which the new server will operate
@@ -404,7 +438,7 @@ public class VMSupport implements VirtualMachineSupport {
 	 */
 	@Override
 	public VMScalingCapabilities describeVerticalScalingCapabilities() throws CloudException, InternalException {
-		return VMScalingCapabilities.getInstance(false, true);
+		return VMScalingCapabilities.getInstance(false, true, Requirement.REQUIRED, Requirement.REQUIRED);
 	}
 
 	/**
@@ -712,14 +746,33 @@ public class VMSupport implements VirtualMachineSupport {
 	}
 
 	/**
+	 * Indicates the degree to which specifying a user name and password at launch is required for a Unix operating system.
+	 * @return the requirements level for specifying a user name and password at launch
+	 * @throws CloudException an error occurred in the cloud identifying this requirement
+	 * @throws InternalException an error occurred within the Dasein Cloud implementation identifying this requirement
+	 * @deprecated Use {@link #identifyPasswordRequirement(Platform)}
+	 */
+	@Deprecated
+	@Override
+	public Requirement identifyPasswordRequirement() throws CloudException,InternalException {
+		return Requirement.REQUIRED;
+	}
+
+	/**
 	 * Indicates the degree to which specifying a user name and password at launch is required.
+	 * @param platform the platform for which password requirements are being sought
 	 * @return the requirements level for specifying a user name and password at launch
 	 * @throws CloudException an error occurred in the cloud identifying this requirement
 	 * @throws InternalException an error occurred within the Dasein Cloud implementation identifying this requirement
 	 */
 	@Override
-	public Requirement identifyPasswordRequirement() throws CloudException,InternalException {
-		return Requirement.REQUIRED;
+	public Requirement identifyPasswordRequirement(Platform platform) throws CloudException, InternalException {
+		if (Platform.WINDOWS.equals(platform)) {
+			return Requirement.REQUIRED;
+		}
+		else {
+			return Requirement.NONE;
+		}
 	}
 
 	/**
@@ -734,14 +787,33 @@ public class VMSupport implements VirtualMachineSupport {
 	}
 
 	/**
+	 * Indicates the degree to which specifying a shell key at launch is required for a Unix operating system.
+	 * @return the requirements level for shell key support at launch
+	 * @throws CloudException an error occurred in the cloud identifying this requirement
+	 * @throws InternalException an error occurred within the Dasein Cloud implementation identifying this requirement
+	 * @deprecated Use {@link #identifyShellKeyRequirement(Platform)}
+	 */
+	@Deprecated
+	@Override
+	public Requirement identifyShellKeyRequirement() throws CloudException, InternalException {
+		return Requirement.REQUIRED;
+	}
+
+	/**
 	 * Indicates the degree to which specifying a shell key at launch is required.
+	 * @param platform the target platform for which you are testing
 	 * @return the requirements level for shell key support at launch
 	 * @throws CloudException an error occurred in the cloud identifying this requirement
 	 * @throws InternalException an error occurred within the Dasein Cloud implementation identifying this requirement
 	 */
 	@Override
-	public Requirement identifyShellKeyRequirement() throws CloudException, InternalException {
-		return Requirement.REQUIRED;
+	public Requirement identifyShellKeyRequirement(Platform platform) throws CloudException, InternalException {
+		if (Platform.WINDOWS.equals(platform)) {
+			return Requirement.NONE;
+		}
+		else {
+			return Requirement.REQUIRED;
+		}
 	}
 
 	/**
@@ -861,6 +933,7 @@ public class VMSupport implements VirtualMachineSupport {
 	 * @throws CloudException an error occurred within the cloud provider
 	 * @deprecated use {@link #launch(VMLaunchOptions)}
 	 */
+	@Deprecated
 	@Override
 	public @Nonnull VirtualMachine launch(@Nonnull String fromMachineImageId, @Nonnull VirtualMachineProduct product, @Nonnull String dataCenterId, @Nonnull String name, @Nonnull String description, @Nullable String withKeypairId, @Nullable String inVlanId, boolean withAnalytics, boolean asSandbox, @Nullable String ... firewallIds) throws InternalException, CloudException {
 		return launch(fromMachineImageId, product, dataCenterId, name, description, withKeypairId, inVlanId, withAnalytics, asSandbox, firewallIds, new Tag[0]);
@@ -886,6 +959,7 @@ public class VMSupport implements VirtualMachineSupport {
 	 * @throws CloudException an error occurred within the cloud provider
 	 * @deprecated use {@link #launch(VMLaunchOptions)}
 	 */
+	@Deprecated
 	@Override
 	public @Nonnull VirtualMachine launch(@Nonnull String fromMachineImageId, @Nonnull VirtualMachineProduct product, @Nonnull String dataCenterId, @Nonnull String name, @Nonnull String description, @Nullable String withKeypairId, @Nullable String inVlanId, boolean withAnalytics, boolean asSandbox, @Nullable String[] firewallIds, @Nullable Tag ... tags)	throws InternalException, CloudException {
 		VMLaunchOptions cfg = VMLaunchOptions.getInstance(product.getProviderProductId(), fromMachineImageId, name, description == null ? name : description);
@@ -1140,12 +1214,18 @@ public class VMSupport implements VirtualMachineSupport {
 				String vlanId = nic.getProviderVlanId();
 				if (networkMap.containsKey(vlanId)) {
 					List<String> networkIps = networkMap.get(vlanId);
-					networkIps.add(nic.getIpAddress());
+					for (RawAddress address : nic.getIpAddresses()) {
+						networkIps.add(address.getIpAddress());
+						//TODO: Check if version is needed.
+					}
 					networkMap.put(vlanId, networkIps);
 				}
 				else {
 					List<String> networkIps = new ArrayList<String>();
-					networkIps.add(nic.getIpAddress());
+					for (RawAddress address : nic.getIpAddresses()) {
+						networkIps.add(address.getIpAddress());
+						//TODO: Check if version is needed.
+					}
 					networkMap.put(vlanId, networkIps);
 				}
 			}
@@ -1312,7 +1392,11 @@ public class VMSupport implements VirtualMachineSupport {
 				}
 				else {
 					NetworkInterface nic = new NetworkInterface();
-					nic.setIpAddress(availableIpAddress);
+					RawAddress[] addresses = new RawAddress[1];
+					RawAddress rawAddress = new RawAddress(availableIpAddress);
+					addresses[0] = rawAddress;
+
+					nic.setIpAddresses(addresses);
 					nic.setProviderVlanId(inVlanId);
 					nicsToAssign.add(nic);
 				}
@@ -1323,24 +1407,76 @@ public class VMSupport implements VirtualMachineSupport {
 
 				Element networkSettingsElement = doc.createElement("NetworkSettings");
 				Element networkAdapterSettingsElement = doc.createElement("NetworkAdapterSettings");
-
 				for (NetworkInterface nic : nicsToAssign) {
-					VLAN network = provider.getNetworkServices().getVlanSupport().getVlan(nic.getProviderVlanId());
-					Element networkAdapterElement = doc.createElement("NetworkAdapter");
+					RawAddress[] nicAddresses = nic.getIpAddresses();
+					int numNicAddresses = nicAddresses.length;
+					boolean dualStack = false;
+					if (numNicAddresses == 2) {
+						if (!nicAddresses[0].getVersion().equals(nicAddresses[1].getVersion())) {
+							dualStack = true;
+						}
+						else {
+							logger.warn("Only one ip address of each version can be specified per network interface. Using the first ip in the array.");
+						}
+					}
+					else if (numNicAddresses > 2) {
+						logger.warn("Only one ip address of each version can be specified per network interface. Using the first ip in the array.");
+					}
+					if (dualStack) {
+						VLAN network = provider.getNetworkServices().getVlanSupport().getVlan(nic.getProviderVlanId());
+						Element networkAdapterElement = doc.createElement("NetworkAdapter");
 
-					Element networkElement = doc.createElement(TerremarkNetworkSupport.NETWORK_TAG);
-					networkElement.setAttribute(Terremark.HREF, Terremark.DEFAULT_URI_PATH + "/" + TerremarkNetworkSupport.NETWORKS + "/" + nic.getProviderVlanId());
-					networkElement.setAttribute(Terremark.NAME, network.getName());
-					networkElement.setAttribute(Terremark.TYPE, TerremarkNetworkSupport.NETWORK_TYPE);
-					networkAdapterElement.appendChild(networkElement);
+						Element networkElement = doc.createElement(TerremarkNetworkSupport.NETWORK_TAG);
+						networkElement.setAttribute(Terremark.HREF, Terremark.DEFAULT_URI_PATH + "/" + TerremarkNetworkSupport.NETWORKS + "/" + nic.getProviderVlanId());
+						networkElement.setAttribute(Terremark.NAME, network.getName());
+						networkElement.setAttribute(Terremark.TYPE, TerremarkNetworkSupport.NETWORK_TYPE);
+						networkAdapterElement.appendChild(networkElement);
 
-					Element ipAddressElement = doc.createElement(TerremarkIpAddressSupport.IP_ADDRESS_TAG); 
-					ipAddressElement.appendChild(doc.createTextNode(nic.getIpAddress()));
-					networkAdapterElement.appendChild(ipAddressElement);
+						String ipv4Address = "";
+						String ipv6Address = "";
+						for (RawAddress address : nicAddresses) {
+							if (address.getVersion().equals(IPVersion.IPV4)) {
+								ipv4Address = address.getIpAddress();
+							}
+							else if (address.getVersion().equals(IPVersion.IPV6)) {
+								ipv6Address = address.getIpAddress();
+							}
+						}
 
-					//IpAddressV6 would go here
+						Element ipAddressElement = doc.createElement(TerremarkIpAddressSupport.IP_ADDRESS_TAG); 
+						ipAddressElement.appendChild(doc.createTextNode(ipv4Address));
+						networkAdapterElement.appendChild(ipAddressElement);
 
-					networkAdapterSettingsElement.appendChild(networkAdapterElement);
+						Element ipV6AddressElement = doc.createElement(TerremarkIpAddressSupport.IP_ADDRESS_V6_TAG); 
+						ipV6AddressElement.appendChild(doc.createTextNode(ipv6Address));
+						networkAdapterElement.appendChild(ipV6AddressElement);
+
+						networkAdapterSettingsElement.appendChild(networkAdapterElement);
+					}
+					else {
+						VLAN network = provider.getNetworkServices().getVlanSupport().getVlan(nic.getProviderVlanId());
+						Element networkAdapterElement = doc.createElement("NetworkAdapter");
+
+						Element networkElement = doc.createElement(TerremarkNetworkSupport.NETWORK_TAG);
+						networkElement.setAttribute(Terremark.HREF, Terremark.DEFAULT_URI_PATH + "/" + TerremarkNetworkSupport.NETWORKS + "/" + nic.getProviderVlanId());
+						networkElement.setAttribute(Terremark.NAME, network.getName());
+						networkElement.setAttribute(Terremark.TYPE, TerremarkNetworkSupport.NETWORK_TYPE);
+						networkAdapterElement.appendChild(networkElement);
+
+						RawAddress address = nicAddresses[0];
+						if (address.getVersion().equals(IPVersion.IPV4)) {
+							Element ipAddressElement = doc.createElement(TerremarkIpAddressSupport.IP_ADDRESS_TAG); 
+							ipAddressElement.appendChild(doc.createTextNode(address.getIpAddress()));
+							networkAdapterElement.appendChild(ipAddressElement);
+						}
+						else if (address.getVersion().equals(IPVersion.IPV6)) {
+							Element ipAddressElement = doc.createElement(TerremarkIpAddressSupport.IP_ADDRESS_V6_TAG); 
+							ipAddressElement.appendChild(doc.createTextNode(address.getIpAddress()));
+							networkAdapterElement.appendChild(ipAddressElement);
+						}
+
+						networkAdapterSettingsElement.appendChild(networkAdapterElement);
+					}
 				}
 
 				networkSettingsElement.appendChild(networkAdapterSettingsElement);
@@ -1362,23 +1498,77 @@ public class VMSupport implements VirtualMachineSupport {
 				Element networkSettingsElement = doc.createElement("NetworkSettings");
 				Element networkAdapterSettingsElement = doc.createElement("NetworkAdapterSettings");
 				for (NetworkInterface nic : nicsToAssign) {
-					VLAN network = provider.getNetworkServices().getVlanSupport().getVlan(nic.getProviderVlanId());
-					Element networkAdapterElement = doc.createElement("NetworkAdapter");
+					RawAddress[] nicAddresses = nic.getIpAddresses();
+					int numNicAddresses = nicAddresses.length;
+					boolean dualStack = false;
+					if (numNicAddresses == 2) {
+						if (!nicAddresses[0].getVersion().equals(nicAddresses[1].getVersion())) {
+							dualStack = true;
+						}
+						else {
+							logger.warn("Only one ip address of each version can be specified per network interface. Using the first ip in the array.");
+						}
+					}
+					else if (numNicAddresses > 2) {
+						logger.warn("Only one ip address of each version can be specified per network interface. Using the first ip in the array.");
+					}
+					if (dualStack) {
+						VLAN network = provider.getNetworkServices().getVlanSupport().getVlan(nic.getProviderVlanId());
+						Element networkAdapterElement = doc.createElement("NetworkAdapter");
 
-					Element networkElement = doc.createElement(TerremarkNetworkSupport.NETWORK_TAG);
-					networkElement.setAttribute(Terremark.HREF, Terremark.DEFAULT_URI_PATH + "/" + TerremarkNetworkSupport.NETWORKS + "/" + nic.getProviderVlanId());
-					networkElement.setAttribute(Terremark.NAME, network.getName());
-					networkElement.setAttribute(Terremark.TYPE, TerremarkNetworkSupport.NETWORK_TYPE);
-					networkAdapterElement.appendChild(networkElement);
+						Element networkElement = doc.createElement(TerremarkNetworkSupport.NETWORK_TAG);
+						networkElement.setAttribute(Terremark.HREF, Terremark.DEFAULT_URI_PATH + "/" + TerremarkNetworkSupport.NETWORKS + "/" + nic.getProviderVlanId());
+						networkElement.setAttribute(Terremark.NAME, network.getName());
+						networkElement.setAttribute(Terremark.TYPE, TerremarkNetworkSupport.NETWORK_TYPE);
+						networkAdapterElement.appendChild(networkElement);
 
-					Element ipAddressElement = doc.createElement(TerremarkIpAddressSupport.IP_ADDRESS_TAG); 
-					ipAddressElement.appendChild(doc.createTextNode(nic.getIpAddress()));
-					networkAdapterElement.appendChild(ipAddressElement);
+						String ipv4Address = "";
+						String ipv6Address = "";
+						for (RawAddress address : nicAddresses) {
+							if (address.getVersion().equals(IPVersion.IPV4)) {
+								ipv4Address = address.getIpAddress();
+							}
+							else if (address.getVersion().equals(IPVersion.IPV6)) {
+								ipv6Address = address.getIpAddress();
+							}
+						}
 
-					//IpAddressV6 would go here
+						Element ipAddressElement = doc.createElement(TerremarkIpAddressSupport.IP_ADDRESS_TAG); 
+						ipAddressElement.appendChild(doc.createTextNode(ipv4Address));
+						networkAdapterElement.appendChild(ipAddressElement);
 
-					networkAdapterSettingsElement.appendChild(networkAdapterElement);
+						Element ipV6AddressElement = doc.createElement(TerremarkIpAddressSupport.IP_ADDRESS_V6_TAG); 
+						ipV6AddressElement.appendChild(doc.createTextNode(ipv6Address));
+						networkAdapterElement.appendChild(ipV6AddressElement);
+
+						networkAdapterSettingsElement.appendChild(networkAdapterElement);
+					}
+					else {
+						VLAN network = provider.getNetworkServices().getVlanSupport().getVlan(nic.getProviderVlanId());
+						Element networkAdapterElement = doc.createElement("NetworkAdapter");
+
+						Element networkElement = doc.createElement(TerremarkNetworkSupport.NETWORK_TAG);
+						networkElement.setAttribute(Terremark.HREF, Terremark.DEFAULT_URI_PATH + "/" + TerremarkNetworkSupport.NETWORKS + "/" + nic.getProviderVlanId());
+						networkElement.setAttribute(Terremark.NAME, network.getName());
+						networkElement.setAttribute(Terremark.TYPE, TerremarkNetworkSupport.NETWORK_TYPE);
+						networkAdapterElement.appendChild(networkElement);
+
+						RawAddress address = nicAddresses[0];
+						if (address.getVersion().equals(IPVersion.IPV4)) {
+							Element ipAddressElement = doc.createElement(TerremarkIpAddressSupport.IP_ADDRESS_TAG); 
+							ipAddressElement.appendChild(doc.createTextNode(address.getIpAddress()));
+							networkAdapterElement.appendChild(ipAddressElement);
+						}
+						else if (address.getVersion().equals(IPVersion.IPV6)) {
+							Element ipAddressElement = doc.createElement(TerremarkIpAddressSupport.IP_ADDRESS_V6_TAG); 
+							ipAddressElement.appendChild(doc.createTextNode(address.getIpAddress()));
+							networkAdapterElement.appendChild(ipAddressElement);
+						}
+
+						networkAdapterSettingsElement.appendChild(networkAdapterElement);
+					}
 				}
+
 				networkSettingsElement.appendChild(networkAdapterSettingsElement);
 				//Optional DNS Settings Go Here
 				customiztionElement.appendChild(networkSettingsElement);
@@ -1452,7 +1642,11 @@ public class VMSupport implements VirtualMachineSupport {
 		}
 
 		if (template.getPlatform().equals(Platform.WINDOWS)){
+			server.setRootUser("Administrator");
 			server.setRootPassword(withPassword);
+		}
+		else {
+			server.setRootUser(DEFAULT_ROOT_USER);
 		}
 		logger.trace("exit() - launchFromTemplate()");
 		return server;
@@ -1499,7 +1693,7 @@ public class VMSupport implements VirtualMachineSupport {
 				for( int ram : new int[] { 512, 1024, 2048, 4096, 8192, 16384, 32768 } ) {
 					for (int disk : new int[] { 1, 10, 30, 50, 100, 256, 512 } ) {
 						VirtualMachineProduct product = new VirtualMachineProduct();
-						product.setProviderProductId(cpu + ":" + ram + ":[" + disk + "]");
+						product.setProviderProductId(cpu + ":" + ram + ":" + disk);
 						product.setName(cpu + " CPU, " + ram + "MB RAM, " + disk + "GB Disk");
 						product.setDescription(cpu + " CPU, " + ram + "MB RAM, " + disk + "GB Disk");
 						product.setCpuCount(cpu);
@@ -1975,7 +2169,7 @@ public class VMSupport implements VirtualMachineSupport {
 			else if (childNode.getNodeName().equalsIgnoreCase("HardwareConfiguration")){
 				String processorCount = "0";
 				int mbRam = 0;
-				String diskSizes = "";
+				String rootDiskSize = "";
 				NodeList hcNodes = childNode.getChildNodes();
 				for (int j=0; j < hcNodes.getLength(); j++) {
 					Node hcNode = hcNodes.item(j);
@@ -1994,33 +2188,25 @@ public class VMSupport implements VirtualMachineSupport {
 					}
 					else if (hcNode.getNodeName().equalsIgnoreCase("Disks")){
 						NodeList diskNodes = hcNode.getChildNodes();
-						for (int k=0; k<diskNodes.getLength(); k++) {
-							NodeList diskProperties = diskNodes.item(k).getChildNodes();
-							for (int l=0; l < diskProperties.getLength(); l++){
-								if (diskProperties.item(l).getNodeName().equalsIgnoreCase("Size")){
-									String diskUnit = diskProperties.item(l).getFirstChild().getTextContent();
-									String diskSize = diskProperties.item(l).getFirstChild().getNextSibling().getTextContent();
-									int gbDisk = 0;
-									if (diskUnit.equalsIgnoreCase("GB")){ // API Doc says disks use GB
-										gbDisk = Integer.parseInt(diskSize);
-									}
-									else if (diskUnit.equalsIgnoreCase("TB")){
-										gbDisk = (Integer.parseInt(diskSize) * 1024);
-									}
-									else if (diskUnit.equalsIgnoreCase("MB")){
-										gbDisk = (Integer.parseInt(diskSize) / 1024);
-									}
-									if (k == 0) {
-										vm.getTags().put("rootDiskSize", String.valueOf(gbDisk));
-										diskSizes += "[" + gbDisk;
-									}
-									else {
-										diskSizes += "," + gbDisk;
-									}
+						NodeList diskProperties = diskNodes.item(0).getChildNodes();
+						for (int l=0; l < diskProperties.getLength(); l++){
+							if (diskProperties.item(l).getNodeName().equalsIgnoreCase("Size")){
+								String diskUnit = diskProperties.item(l).getFirstChild().getTextContent();
+								String diskSize = diskProperties.item(l).getFirstChild().getNextSibling().getTextContent();
+								int gbDisk = 0;
+								if (diskUnit.equalsIgnoreCase("GB")){ // API Doc says disks use GB
+									gbDisk = Integer.parseInt(diskSize);
 								}
+								else if (diskUnit.equalsIgnoreCase("TB")){
+									gbDisk = (Integer.parseInt(diskSize) * 1024);
+								}
+								else if (diskUnit.equalsIgnoreCase("MB")){
+									gbDisk = (Integer.parseInt(diskSize) / 1024);
+								}
+								rootDiskSize = String.valueOf(gbDisk);
+								break;
 							}
 						}
-						diskSizes += "]";
 					}
 					else if (hcNode.getNodeName().equalsIgnoreCase("Nics")){
 						NodeList nicNodes = hcNode.getChildNodes();
@@ -2042,14 +2228,14 @@ public class VMSupport implements VirtualMachineSupport {
 									nicNetworkName = nicProperty.getAttributes().getNamedItem(Terremark.NAME).getNodeValue();
 									nicNetworkType = nicProperty.getAttributes().getNamedItem(Terremark.TYPE).getNodeValue();
 								}
-								
+
 							}
 							String value = nicNumber + ":" + nicNetworkHref + ":" + nicNetworkName + ":" + nicNetworkType;
 							vm.setTag(key, value);
 						}
 					}
 				}
-				String str = processorCount + ":" + mbRam + ":" + diskSizes;
+				String str = processorCount + ":" + mbRam + ":" + rootDiskSize;
 				vm.setProductId(str);
 				logger.debug("toVirtualMachine(): ID = " + vm.getProviderVirtualMachineId() + " Product = " + vm.getProductId());
 			}
@@ -2066,8 +2252,8 @@ public class VMSupport implements VirtualMachineSupport {
 									Node networkNode = networksNodes.item(l);
 									NamedNodeMap networkAttrs = networkNode.getAttributes();
 									String networkType = networkAttrs.getNamedItem(Terremark.TYPE).getNodeValue();
-									if (networkType.equals(TerremarkNetworkSupport.NETWORK_TYPE)) {
-										String networkId = Terremark.hrefToId(networkAttrs.getNamedItem(Terremark.HREF).getNodeValue());
+									if (networkType.equals(TerremarkNetworkSupport.NETWORK_TYPE) || networkType.equals(TerremarkNetworkSupport.NETWORK_IPV6_TYPE)) {
+										String networkId = Terremark.hrefToNetworkId(networkAttrs.getNamedItem(Terremark.HREF).getNodeValue());
 										NodeList ipAddressNodes = networkNode.getFirstChild().getChildNodes();
 										for (int n=0; n < ipAddressNodes.getLength(); n++){
 											String address = ipAddressNodes.item(n).getTextContent();
@@ -2082,24 +2268,33 @@ public class VMSupport implements VirtualMachineSupport {
 					}
 				}
 				if (addresses.size() > 0){
-					String[] ips = new String[addresses.size()];
+					RawAddress[] privateIps = new RawAddress[addresses.size()];
 					int o = 0;
 
 					for( String addr : addresses ) {
 						if( o == 0 ) {
-							vm.setPrivateDnsAddress(addr.split("/")[1]); //Set to the address part of the first IP address id
+							String[]addrIds = addr.split("/");
+							String dnsAddr = "";
+							if (addrIds.length == 2) { //IPV4
+								dnsAddr = addr.split("/")[1];
+							}
+							else if (addrIds.length == 3) { //IPV6
+								dnsAddr = addr.split("/")[2];
+							}
+							vm.setPrivateDnsAddress(dnsAddr); //Set to the address part of the first IP address id
 							logger.debug("toVirtualMachine(): ID = " + vm.getProviderVirtualMachineId() + " PrivateDnsAddress = " + vm.getPrivateDnsAddress());
 						}
-						ips[o++] = addr;
+						privateIps[o++] = new RawAddress(addr);
 					}
-					vm.setPrivateIpAddresses(ips);
-					logger.debug("toVirtualMachine(): ID = " + vm.getProviderVirtualMachineId() + " PrivateIpAddress = " + Arrays.toString(vm.getPrivateIpAddresses()));
+
+					vm.setPrivateAddresses(privateIps);
+					logger.debug("toVirtualMachine(): ID = " + vm.getProviderVirtualMachineId() + " PrivateIpAddress = " + Arrays.toString(vm.getPrivateAddresses()));
 				}
 				else {
-					vm.setPrivateIpAddresses(new String[0]);
+					vm.setPrivateAddresses(new RawAddress[0]);
 				}
 				vm.setPublicDnsAddress(null);
-				vm.setPublicIpAddresses(new String[0]);
+				vm.setPublicAddresses(new RawAddress[0]);
 				vm.setProviderAssignedIpAddressId(null);
 			}	
 			else if (childNode.getNodeName().equalsIgnoreCase("OperatingSystem")){

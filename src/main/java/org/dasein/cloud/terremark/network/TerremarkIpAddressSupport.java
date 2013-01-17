@@ -25,6 +25,7 @@ import org.dasein.cloud.OperationNotSupportedException;
 import org.dasein.cloud.Requirement;
 import org.dasein.cloud.ResourceStatus;
 import org.dasein.cloud.compute.VirtualMachine;
+import org.dasein.cloud.compute.VirtualMachineSupport;
 import org.dasein.cloud.identity.ServiceAction;
 import org.dasein.cloud.network.AddressType;
 import org.dasein.cloud.network.IPVersion;
@@ -33,6 +34,7 @@ import org.dasein.cloud.network.IpAddressSupport;
 import org.dasein.cloud.network.IpForwardingRule;
 import org.dasein.cloud.network.NetworkInterface;
 import org.dasein.cloud.network.Protocol;
+import org.dasein.cloud.network.RawAddress;
 import org.dasein.cloud.network.VLAN;
 import org.dasein.cloud.network.VLANSupport;
 import org.dasein.cloud.terremark.EnvironmentsAndComputePools;
@@ -57,6 +59,7 @@ public class TerremarkIpAddressSupport  implements IpAddressSupport {
 
 	// Response Tags
 	public final static String IP_ADDRESS_TAG              = "IpAddress";
+	public final static String IP_ADDRESS_V6_TAG           = "IpAddressV6";
 	public final static String PUBLIC_IP_TAG               = "PublicIp";
 	public final static String HOST_TAG                    = "Host";
 	public final static String DETECTED_ON_TAG             = "DetectedOn";
@@ -379,10 +382,10 @@ public class TerremarkIpAddressSupport  implements IpAddressSupport {
 		VirtualMachine server;
 		try {
 			server = provider.getComputeServices().getVirtualMachineSupport().getVirtualMachine(onServerId);
-			String[] addresses = server.getPrivateIpAddresses();
+			RawAddress[] addresses = server.getPrivateAddresses();
 
 			if( addresses != null && addresses.length > 0 ) {
-				privateAddressId = addresses[0];
+				privateAddressId = addresses[0].getIpAddress();
 			}
 			if( logger.isDebugEnabled() ) {
 				logger.debug("forward(): privateAddressId=" + privateAddressId);
@@ -547,34 +550,6 @@ public class TerremarkIpAddressSupport  implements IpAddressSupport {
 		return ruleId;
 	}
 
-	/**
-	 * Finds a private ip address that is not tied to a server and unreserves it if it is reserved.
-	 * @param networkId the id of the network containing the private ips being sought
-	 * @param true if you want the ip address to be reserved, false if you want it to be unreserved
-	 * @return Available private IP addresses from the network in the reserved/unreserved state requested
-	 * @throws InternalException an internal error occurred inside the Dasein Cloud implementation
-	 * @throws CloudException an error occurred processing the request in the cloud
-	 */
-	public @Nonnull String getUnreservedAvailableIPv4PrivateIp(String networkId) throws InternalException, CloudException {
-		IpAddress availableIp = null;
-		Iterator<IpAddress> privateIps = provider.getNetworkServices().getIpAddressSupport().listPrivateIps(networkId, IPVersion.IPV4, true, false, false).iterator();
-		String availableIpId = null;
-		String availableIpAddress = null;
-		if (privateIps.hasNext()) {
-			availableIp = privateIps.next();
-			availableIpId = availableIp.getProviderIpAddressId();
-			availableIpAddress = availableIp.getAddress();
-		}
-		else {
-			logger.warn("getUnreservedAvailablePrivateIp(): Failed to find available ip");
-		}
-
-		if (getIpAddress(availableIpId) != null) {
-			unreserveIp(availableIpId);
-		}
-		return availableIpAddress;
-	}
-
 	private Collection<InternetService> getInternetServicesOnPublicIp(String addressId) throws CloudException, InternalException {
 		Collection<InternetService> internetServices = new ArrayList<InternetService>();
 		String url = "/" + PUBLIC_IPS + "/" + addressId;
@@ -624,17 +599,7 @@ public class TerremarkIpAddressSupport  implements IpAddressSupport {
 			}
 		}
 		else {
-			String url = "";
-			boolean ipv6 = addressId.contains(":");
-			if (ipv6) {
-				String[] ids = addressId.split("/");
-				String networkId = ids[0];
-				String ipId = ids[1];
-				url = "/" + IP_ADDRESSES + "/" + TerremarkNetworkSupport.NETWORKS + "/" + networkId + "/ipv6/" + ipId;
-			}
-			else {
-				url = "/" + IP_ADDRESSES + "/" + TerremarkNetworkSupport.NETWORKS + "/" + addressId;
-			}
+			String url = "/" + IP_ADDRESSES + "/" + TerremarkNetworkSupport.NETWORKS + "/" + addressId;
 
 			TerremarkMethod method = new TerremarkMethod(provider, HttpMethodName.GET, url, null, null);
 			Document doc = null;
@@ -667,6 +632,7 @@ public class TerremarkIpAddressSupport  implements IpAddressSupport {
 			NodeList ipAddressChildren = ipAddress.getChildNodes();
 			boolean available = true;
 			boolean reservable = true;
+			boolean reserved = false;
 			String networkHostId = null;
 			for (int j = 0; j < ipAddressChildren.getLength(); j++) {
 				Node ipChild = ipAddressChildren.item(j);
@@ -686,7 +652,9 @@ public class TerremarkIpAddressSupport  implements IpAddressSupport {
 					String hostHref = ipChild.getAttributes().getNamedItem(Terremark.HREF).getNodeValue();
 					networkHostId = Terremark.hrefToId(hostHref);
 					available = false;
-					break;
+				}
+				else if (ipChildName.equalsIgnoreCase("Reserved")) {
+					reserved = ipChild.getTextContent().equalsIgnoreCase("true");
 				}
 			}
 			if (available) {
@@ -698,6 +666,7 @@ public class TerremarkIpAddressSupport  implements IpAddressSupport {
 					ip.setAddressType(AddressType.PRIVATE);
 					ip.setVersion(version);
 					ip.setRegionId(provider.getContext().getRegionId());
+					ip.setReserved(reserved);
 					logger.debug("getIpAddresses(): Adding ip: " + ip);
 					ips.add(ip);
 				}
@@ -714,6 +683,7 @@ public class TerremarkIpAddressSupport  implements IpAddressSupport {
 					ip.setRegionId(provider.getContext().getRegionId());
 					NetworkInterface host = provider.getNetworkServices().getVlanSupport().getNetworkInterface(networkHostId);
 					ip.setServerId(host.getProviderVirtualMachineId());
+					ip.setReserved(reserved);
 					logger.debug("getIpAddresses(): Adding ip: " + ip);
 					ips.add(ip);
 				}
@@ -773,6 +743,7 @@ public class TerremarkIpAddressSupport  implements IpAddressSupport {
 				IpAddress ip = new IpAddress();
 				String address = ipAddress.getAttributes().getNamedItem(Terremark.NAME).getNodeValue();
 				ip.setAddress(address);
+				ip.setReserved(reserved);
 				ip.setIpAddressId(networkId + "/" + address);
 				ip.setAddressType(AddressType.PRIVATE);
 				ip.setVersion(version);
@@ -787,7 +758,7 @@ public class TerremarkIpAddressSupport  implements IpAddressSupport {
 		}
 		return ips;
 	}
-	
+
 	private Collection<ResourceStatus> getReservedIpAddressesStatus(Document doc, String networkId) throws CloudException, InternalException {
 		Collection<ResourceStatus> ips = new ArrayList<ResourceStatus>();
 		NodeList ipAddresses = doc.getElementsByTagName(IP_ADDRESS_TAG);
@@ -817,6 +788,34 @@ public class TerremarkIpAddressSupport  implements IpAddressSupport {
 		}
 		return ips;
 	}
+	
+	/**
+	 * Finds a private ip address that is not tied to a server and unreserves it if it is reserved.
+	 * @param networkId the id of the network containing the private ips being sought
+	 * @param true if you want the ip address to be reserved, false if you want it to be unreserved
+	 * @return Available private IP addresses from the network in the reserved/unreserved state requested
+	 * @throws InternalException an internal error occurred inside the Dasein Cloud implementation
+	 * @throws CloudException an error occurred processing the request in the cloud
+	 */
+	public @Nonnull String getUnreservedAvailableIPv4PrivateIp(String networkId) throws InternalException, CloudException {
+		IpAddress availableIp = null;
+		Iterator<IpAddress> privateIps = provider.getNetworkServices().getIpAddressSupport().listPrivateIps(networkId, IPVersion.IPV4, true, false, false).iterator();
+		String availableIpId = null;
+		String availableIpAddress = null;
+		if (privateIps.hasNext()) {
+			availableIp = privateIps.next();
+			availableIpId = availableIp.getProviderIpAddressId();
+			availableIpAddress = availableIp.getRawAddress().getIpAddress();
+		}
+		else {
+			logger.warn("getUnreservedAvailablePrivateIp(): Failed to find available ip");
+		}
+
+		if (getIpAddress(availableIpId) != null) {
+			unreserveIp(availableIpId);
+		}
+		return availableIpAddress;
+	}
 
 	/**
 	 * Indicates whether you need to specify which VLAN you are tying a static IP address to when creating an
@@ -832,13 +831,18 @@ public class TerremarkIpAddressSupport  implements IpAddressSupport {
 	}
 
 	/**
-	 * Converts a private IPv4 IP address href to the ID format network_id/ip_address.
-	 * @param href An IPv4 IP Address href of the form /cloudapi/ecloud/ipAddresses/networks/{network identifier}/{host IPv4 address}
-	 * @return the IP address ID in the format network_id/ip_address
-	 */
-	public String ipAddressHrefToId (String href) {
-		int beginIndex = href.indexOf(TerremarkNetworkSupport.NETWORKS + "/") + TerremarkNetworkSupport.NETWORKS.length() + 1;
-		return href.substring(beginIndex, href.length());
+     * When addresses are assignable, they may be assigned at launch, post-launch, or both.
+     * {@link VirtualMachineSupport#identifyStaticIPRequirement()} will tell you what must be done
+     * at launch time. This method indicates whether or not assignable IPs may be assigned after launch. This
+     * method should never return true when {@link #isAssigned(IPVersion)} returns false.
+     * @param version the IP version being checked
+     * @return true if IP addresses of the specified version can be assigned post launch
+     * @throws CloudException an error occurred with the cloud provider determining support
+     * @throws InternalException a local error occurred determining support
+     */
+	@Override
+	public boolean isAssignablePostLaunch(IPVersion version) throws CloudException, InternalException {
+		return false;
 	}
 
 	/**
@@ -853,6 +857,7 @@ public class TerremarkIpAddressSupport  implements IpAddressSupport {
 		return false;
 	}
 
+
 	/**
 	 * Indicates whether the underlying cloud supports the assignment of addresses of the specified version
 	 * @param version the IP version being checked
@@ -864,7 +869,6 @@ public class TerremarkIpAddressSupport  implements IpAddressSupport {
 	public boolean isAssigned(IPVersion version) throws CloudException, InternalException {
 		return false;
 	}
-
 
 	/**
 	 * Indicates whether the underlying cloud supports the forwarding individual port traffic on 
@@ -965,6 +969,32 @@ public class TerremarkIpAddressSupport  implements IpAddressSupport {
 		}		
 		return ips;
 	}
+	
+	/**
+	 * Lists all IP addresses of the specified IP version that are allocated to the account holder's IP address pool. If
+	 * the specified version is not supported, an empty list should be returned.
+	 * @param version the version of the IP protocol for which you are looking for IP addresses
+	 * @param unassignedOnly show only IP addresses that have yet to be assigned to cloud resources
+	 * @return all matching IP addresses from the IP address pool
+	 * @throws InternalException a local error occurred loading the IP addresses
+	 * @throws CloudException an error occurred with the cloud provider while requesting the IP addresses
+	 */
+	protected Iterable<IpAddress> lisPrivatetIpPool() throws InternalException, CloudException {
+		Collection<IpAddress> ips = new ArrayList<IpAddress>();
+		Iterable<VLAN> networks = provider.getNetworkServices().getVlanSupport().listVlans();
+		for (VLAN network : networks) {
+			String networkId = network.getProviderVlanId();
+			Iterable<IpAddress> networkIps = listPrivateIps(networkId, IPVersion.IPV4, false, false, false);
+			for (IpAddress networkIp : networkIps) {
+				ips.add(networkIp);
+			}
+			networkIps = listPrivateIps(networkId, IPVersion.IPV6, false, false, false);
+			for (IpAddress networkIp : networkIps) {
+				ips.add(networkIp);
+			}
+		}		
+		return ips;
+	}
 
 	/**
 	 * Lists the status of all IP addresses of the specified IP version that are allocated to the account holder's IP
@@ -1028,7 +1058,7 @@ public class TerremarkIpAddressSupport  implements IpAddressSupport {
 		}		
 		return ips;
 	}
-
+	
 	/**
 	 * Lists all (or unassigned, reservable or reserved) private IP addresses within a network.
 	 * @param networkId the id of the network containing the private ips being sought
@@ -1039,7 +1069,7 @@ public class TerremarkIpAddressSupport  implements IpAddressSupport {
 	 * @throws InternalException an internal error occurred inside the Dasein Cloud implementation
 	 * @throws CloudException an error occurred processing the request in the cloud
 	 */
-	public @Nonnull Iterable<IpAddress> listPrivateIps(String networkId, IPVersion version, boolean unassignedOnly, boolean reservableOnly, boolean reservedOnly) throws InternalException, CloudException {
+	protected @Nonnull Iterable<IpAddress> listPrivateIps(String networkId, IPVersion version, boolean unassignedOnly, boolean reservableOnly, boolean reservedOnly) throws InternalException, CloudException {
 		Collection<IpAddress> addresses = new ArrayList<IpAddress>();
 		String url = "/" + TerremarkNetworkSupport.NETWORKS + "/" + networkId;
 		if (version.equals(IPVersion.IPV6)) {
@@ -1067,7 +1097,7 @@ public class TerremarkIpAddressSupport  implements IpAddressSupport {
 		}
 		return addresses;
 	}
-	
+
 	/**
 	 * Lists all (or unassigned, reservable or reserved) private IP addresses within a network.
 	 * @param networkId the id of the network containing the private ips being sought
@@ -1171,6 +1201,10 @@ public class TerremarkIpAddressSupport  implements IpAddressSupport {
 		return new String[0];
 	}
 
+
+	// Support for creating, deleting, listing firewall rules for a specific IP address
+
+
 	/**
 	 * When a cloud allows for programmatic requesting of new IP addresses, you may also programmatically
 	 * release them ({@link #isRequestable(AddressType)}). This method will release the specified IP
@@ -1202,10 +1236,6 @@ public class TerremarkIpAddressSupport  implements IpAddressSupport {
 		}
 
 	}
-
-
-	// Support for creating, deleting, listing firewall rules for a specific IP address
-
 
 	/**
 	 * Releases an IP address assigned to a server so that it is unassigned in the address pool. 
@@ -1330,7 +1360,7 @@ public class TerremarkIpAddressSupport  implements IpAddressSupport {
 		if (privateIps.hasNext()) {
 			availableIp = privateIps.next();
 			availableIpId = availableIp.getProviderIpAddressId();
-			availableIpAddress = availableIp.getAddress();
+			availableIpAddress = availableIp.getRawAddress().getIpAddress();
 		}
 		else {
 			logger.warn("requestForVLAN(): Failed to find available ip");
@@ -1346,7 +1376,7 @@ public class TerremarkIpAddressSupport  implements IpAddressSupport {
 
 	/**
 	 * Reserves a specified IPv4 address.
-	 * @param ipAddressId The ID of the IP address you want to reserve in the form network_id/ip_address.
+	 * @param ipAddressId The ID of the IP address you want to reserve in the form network_id/ip_address or network_id/ipv6/ip_address.
 	 * @throws CloudException an error occurred processing the request in the cloud
 	 * @throws InternalException an internal error occurred inside the Dasein Cloud implementation
 	 */
@@ -1422,11 +1452,14 @@ public class TerremarkIpAddressSupport  implements IpAddressSupport {
 				if (protocol.equals("UDP")){
 					service.setProtocol(Protocol.UDP);
 				}
+				else if (protocol.equals("TCP")){
+					service.setProtocol(Protocol.TCP);
+				}
 				else if (protocol.equals("IPSEC")){
-					service.setProtocol(Protocol.ICMP);
+					service.setProtocol(Protocol.IPSEC);
 				}
 				else {
-					service.setProtocol(Protocol.TCP);
+					service.setProtocol(Protocol.ANY);
 				}
 			}
 			else if (isChild.getNodeName().equals("Port")){
@@ -1512,11 +1545,14 @@ public class TerremarkIpAddressSupport  implements IpAddressSupport {
 								if (protocol.equals("UDP")){
 									rule.setProtocol(Protocol.UDP);
 								}
+								else if (protocol.equals("TCP")){
+									rule.setProtocol(Protocol.TCP);
+								}
 								else if (protocol.equals("IPSEC")){
-									rule.setProtocol(Protocol.ICMP);
+									rule.setProtocol(Protocol.IPSEC);
 								}
 								else {
-									rule.setProtocol(Protocol.TCP);
+									rule.setProtocol(Protocol.ANY);
 								}
 							}
 							else if (nsChild.getNodeName().equals("Port")){
@@ -1550,7 +1586,7 @@ public class TerremarkIpAddressSupport  implements IpAddressSupport {
 			Node childNode = childNodes.item(i);
 			if (childNode.getNodeName().equals(IP_ADDRESS_TAG)) {
 				String href = childNode.getAttributes().getNamedItem(Terremark.HREF).getNodeValue();
-				node.setPrivateIpAddressId(ipAddressHrefToId(href));
+				node.setPrivateIpAddressId(Terremark.hrefToNetworkId(href));
 			}
 			else if (childNode.getNodeName().equals("Port")) {
 				node.setPort(Integer.parseInt(childNode.getTextContent()));
@@ -1570,6 +1606,7 @@ public class TerremarkIpAddressSupport  implements IpAddressSupport {
 		IpAddress privateIp = null;
 		if ((reservedOnly && reserved) || !reservedOnly) {
 			privateIp = new IpAddress();
+			privateIp.setReserved(reserved);
 			NamedNodeMap attributes = publicIpNode.getAttributes();
 			String type = attributes.getNamedItem(Terremark.TYPE).getNodeValue();
 			if (type.equals(IP_ADDRESS_TYPE)) {
@@ -1581,20 +1618,24 @@ public class TerremarkIpAddressSupport  implements IpAddressSupport {
 			privateIp.setAddress(attributes.getNamedItem(Terremark.NAME).getNodeValue());
 			privateIp.setAddressType(AddressType.PRIVATE);
 			String href = attributes.getNamedItem(Terremark.HREF).getNodeValue();
-			privateIp.setIpAddressId(ipAddressHrefToId(href));
+			privateIp.setIpAddressId(Terremark.hrefToNetworkId(href));
+			// Format: network_id/ip_address or network_id/ipv6/ip_address
+			String networkId = privateIp.getProviderIpAddressId().split("/")[0];
+			privateIp.setProviderVlanId(networkId);
 			privateIp.setProviderLoadBalancerId(null);
 			privateIp.setRegionId(provider.getContext().getRegionId());
-			privateIp.setServerId(null);
+			privateIp.setServerId(null); //TODO: Set based on network host
 		}
 
 		return privateIp;
 	}
-
+	
 	private IpAddress toPublicIp(Node publicIpNode) {
 		IpAddress publicIp = new IpAddress();
 		NamedNodeMap attributes = publicIpNode.getAttributes();
-		publicIp.setAddress(attributes.getNamedItem(Terremark.NAME).getNodeValue());
-		if (publicIp.getAddress().contains(":")) {
+		String address = attributes.getNamedItem(Terremark.NAME).getNodeValue();
+		publicIp.setAddress(address);
+		if (address.contains(":")) {
 			publicIp.setVersion(IPVersion.IPV6);
 		}
 		else {
@@ -1608,7 +1649,7 @@ public class TerremarkIpAddressSupport  implements IpAddressSupport {
 		publicIp.setServerId(null);
 		return publicIp;
 	}
-	
+
 	private ResourceStatus toPublicIpStatus(Node publicIpNode, IPVersion version) {
 		NamedNodeMap attributes = publicIpNode.getAttributes();
 		String address = attributes.getNamedItem(Terremark.NAME).getNodeValue();
@@ -1623,9 +1664,9 @@ public class TerremarkIpAddressSupport  implements IpAddressSupport {
 		return status;
 	}
 
-	/**
+    /**
 	 * Unreserves a specified IPv4 address.
-	 * @param ipAddressId The ID of the IP address you want to reserve in the form network_id/ip_address.
+	 * @param ipAddressId The ID of the IP address you want to reserve in the form network_id/ip_address or network_id/ipv6/ip_address.
 	 * @throws CloudException an error occurred processing the request in the cloud
 	 * @throws InternalException an internal error occurred inside the Dasein Cloud implementation
 	 */

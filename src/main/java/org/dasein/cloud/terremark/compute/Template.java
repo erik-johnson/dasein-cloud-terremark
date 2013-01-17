@@ -368,7 +368,6 @@ public class Template  implements MachineImageSupport {
 				logger.debug("Adding tag: " + networkMappingTag);
 				catalogEntry.addTag(networkMappingTag);
 			}
-			//TODO: Create tags with additional catalog info
 		}
 		logger.trace("exit - catalogEntryToMachineImage()");
 		return catalogEntry;
@@ -483,6 +482,17 @@ public class Template  implements MachineImageSupport {
 		return getImage(machineImageId);
 	}
 
+    /**
+     * Provides the cloud provider specific term for a custom image of the specified image class.
+     * @param locale the locale for which the term should be translated
+     * @param cls the image class for the desired type
+     * @return the term used by the provider to describe a custom image
+     */
+	@Override
+	public String getProviderTermForCustomImage(Locale locale, ImageClass cls) {
+		return "catalog entry";
+	}
+
 	/**
 	 * Provides the cloud provider specific term for a machine image.
 	 * @param locale the locale for which the term should be translated
@@ -494,15 +504,14 @@ public class Template  implements MachineImageSupport {
 		return "template/catalog entry";
 	}
 
-	/**
-	 * Provides the cloud provider specific term for a machine image.
-	 * @param locale the locale for which the term should be translated
-	 * @param cls the image class for the desired type
-	 * @return the term used by the provider to describe a machine image
-	 */
+    /**
+     * Provides the cloud provider specific term for a public image of the specified image class.
+     * @param cls the image class for the desired type
+     * @return the term used by the provider to describe a public image
+     */
 	@Override
 	public String getProviderTermForImage(Locale locale, ImageClass cls) {
-		return "template/catalog entry";
+		return "template";
 	}
 
 	/**
@@ -621,7 +630,7 @@ public class Template  implements MachineImageSupport {
 	public boolean isSubscribed() throws CloudException, InternalException {
 		return true;
 	}
-
+	
 	private Collection<MachineImage> listCatalogItems() throws CloudException, InternalException {
 		logger.trace("enter - listCatalogItems()");
 		ArrayList<MachineImage> images = new ArrayList<MachineImage>();
@@ -664,7 +673,7 @@ public class Template  implements MachineImageSupport {
 		logger.trace("exit - listCatalogItems()");
 		return images;
 	}
-	
+
 	private Collection<ResourceStatus> listCatalogItemsStatus() throws CloudException, InternalException {
 		logger.trace("enter - listCatalogItemsStatus()");
 		ArrayList<ResourceStatus> imagesStatus = new ArrayList<ResourceStatus>();
@@ -862,6 +871,7 @@ public class Template  implements MachineImageSupport {
 		return formats;
 	}
 
+
 	private Collection<MachineImage> listTemplates() throws InternalException, CloudException {
 		logger.trace("enter - listMachineImages()");
 		ArrayList<MachineImage> images = new ArrayList<MachineImage>();
@@ -893,7 +903,6 @@ public class Template  implements MachineImageSupport {
 		logger.trace("exit - listMachineImages()");
 		return images;
 	}
-
 
 	@Override
 	public String[] mapServiceAction(ServiceAction arg0) {
@@ -946,6 +955,42 @@ public class Template  implements MachineImageSupport {
 		String url = "/" + Terremark.ADMIN + "/" + CATALOG + "/" + imageId;
 		TerremarkMethod method = new TerremarkMethod(provider, HttpMethodName.DELETE, url, null, "");
 		method.invoke();
+	}
+
+	  /**
+	   * Permanently removes all traces of the target image. This method should remove both the image record in the cloud
+	   * and any cloud storage location in which the image resides for staging.
+	   * @param providerImageId the unique ID of the image to be removed
+	   * @param checkState if the state of the machine image should be checked first
+	   * @throws CloudException an error occurred with the cloud provider
+	   * @throws InternalException a local error occurred in the Dasein Cloud implementation
+	   */
+	@Override
+	public void remove(String providerImageId, boolean checkState) throws CloudException, InternalException {
+	    if ( checkState ) {
+	        long timeout = System.currentTimeMillis() + (CalendarWrapper.MINUTE * 30L);
+
+	        while ( timeout > System.currentTimeMillis() ) {
+	          try {
+	            MachineImage img = getImage( providerImageId );
+
+	            if ( img == null || MachineImageState.DELETED.equals( img.getCurrentState() ) ) {
+	              return;
+	            }
+	            if ( MachineImageState.ACTIVE.equals( img.getCurrentState() ) ) {
+	              break;
+	            }
+	          } catch ( Throwable ignore ) {
+	            // ignore
+	          }
+	          try {
+	            Thread.sleep( 15000L );
+	          } catch ( InterruptedException ignore ) {
+	          }
+	        }
+	      }
+
+	      remove( providerImageId );
 	}
 
 	/**
