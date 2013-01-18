@@ -205,7 +205,7 @@ public class VMSupport implements VirtualMachineSupport {
 			throw new InternalException("Memory size must be a multiple of four");
 		}
 		VirtualMachine vm = null;
-		
+
 		if (newVolumes.length < 1) {
 			throw new InternalException("Can't remove the root volume.");
 		}
@@ -223,7 +223,7 @@ public class VMSupport implements VirtualMachineSupport {
 				oldDisk = oldVolumesItr.next();
 				oldDiskSize = oldDisk.getSizeInGigabytes();
 			}
-			
+
 			if (diskIndex == 0) {
 				if (rootVolumeInt != newDiskSize) {
 					throw new InternalException("The product id root volume size does not match the size specified in the volumes to resize.");
@@ -245,7 +245,7 @@ public class VMSupport implements VirtualMachineSupport {
 		if (diskSizes.size() > 15) {
 			throw new InternalException("Maximum of 15 volumes allowed per virtual machine");
 		}
-		
+
 		long timeout = System.currentTimeMillis() + (CalendarWrapper.MINUTE * 30L);
 
 		while( timeout > System.currentTimeMillis() ) {
@@ -374,22 +374,30 @@ public class VMSupport implements VirtualMachineSupport {
 			String[] networks = networksToAssign.keySet().toArray(new String[0]);
 			for (int i=0; i<networks.length; i++) {
 				String networkId = networks[i];
-				Element networkElement = doc.createElement("Network");
-				String networkHref = Terremark.DEFAULT_URI_PATH + "/" + TerremarkNetworkSupport.NETWORKS + "/" + networkId;
-				networkElement.setAttribute(Terremark.HREF, networkHref);
-				networkElement.setAttribute(Terremark.TYPE, TerremarkNetworkSupport.NETWORK_TYPE);
-				//TODO: Add support for IPV6 networks.
+				VLAN network = provider.getNetworkServices().getVlanSupport().getVlan(networkId);
+				if (network != null) {
+					Element networkElement = doc.createElement("Network");
+					String networkHref = Terremark.DEFAULT_URI_PATH + "/" + TerremarkNetworkSupport.NETWORKS + "/" + networkId;
+					networkElement.setAttribute(Terremark.HREF, networkHref);
+					networkElement.setAttribute(Terremark.NAME, network.getName());
+					if (networkId.contains("ipv6")) {
+						networkElement.setAttribute(Terremark.TYPE, TerremarkNetworkSupport.NETWORK_IPV6_TYPE);
+					}
+					else {
+						networkElement.setAttribute(Terremark.TYPE, TerremarkNetworkSupport.NETWORK_TYPE);
+					}
 
-				Element ipAddressesElement = doc.createElement("IpAddresses");
-				List<String> ipAddressesToAssign = networksToAssign.get(networkId);
-				for (String ipAddressToAssign : ipAddressesToAssign) {
-					Element ipAddressElement = doc.createElement("IpAddress");
-					ipAddressElement.appendChild(doc.createTextNode(ipAddressToAssign));
-					ipAddressesElement.appendChild(ipAddressElement);
+					Element ipAddressesElement = doc.createElement("IpAddresses");
+					List<String> ipAddressesToAssign = networksToAssign.get(networkId);
+					for (String ipAddressToAssign : ipAddressesToAssign) {
+						Element ipAddressElement = doc.createElement("IpAddress");
+						ipAddressElement.appendChild(doc.createTextNode(ipAddressToAssign));
+						ipAddressesElement.appendChild(ipAddressElement);
+					}
+
+					networkElement.appendChild(ipAddressesElement);
+					networksElement.appendChild(networkElement);
 				}
-
-				networkElement.appendChild(ipAddressesElement);
-				networksElement.appendChild(networkElement);
 			}
 
 			rootElement.appendChild(networksElement);	
@@ -1216,7 +1224,6 @@ public class VMSupport implements VirtualMachineSupport {
 					List<String> networkIps = networkMap.get(vlanId);
 					for (RawAddress address : nic.getIpAddresses()) {
 						networkIps.add(address.getIpAddress());
-						//TODO: Check if version is needed.
 					}
 					networkMap.put(vlanId, networkIps);
 				}
@@ -1224,7 +1231,6 @@ public class VMSupport implements VirtualMachineSupport {
 					List<String> networkIps = new ArrayList<String>();
 					for (RawAddress address : nic.getIpAddresses()) {
 						networkIps.add(address.getIpAddress());
-						//TODO: Check if version is needed.
 					}
 					networkMap.put(vlanId, networkIps);
 				}
@@ -1386,7 +1392,7 @@ public class VMSupport implements VirtualMachineSupport {
 
 			}
 			else {
-				String availableIpAddress = provider.getNetworkServices().getIpAddressSupport().getUnreservedAvailableIPv4PrivateIp(inVlanId);
+				String availableIpAddress = provider.getNetworkServices().getIpAddressSupport().getUnreservedAvailablePrivateIp(inVlanId);
 				if (availableIpAddress == null) {
 					throw new CloudException("Failed to find an available private ip");
 				}
@@ -1757,8 +1763,50 @@ public class VMSupport implements VirtualMachineSupport {
 	 */
 	@Override
 	public Iterable<ResourceStatus> listVirtualMachineStatus() throws InternalException, CloudException {
-		// TODO Auto-generated method stub
-		return null;
+		logger.trace("enter - listVirtualMachineStatus()");
+		ArrayList<ResourceStatus> vms = new ArrayList<ResourceStatus>();
+		ProviderContext ctx = provider.getContext();
+		if( ctx == null ) {
+			throw new CloudException("No context was established for this request");
+		}
+		String regionId = ctx.getRegionId();
+		Document environmentDoc = provider.getDataCenterServices().getEnvironmentById(regionId);
+		NodeList vmNodes = environmentDoc.getElementsByTagName(VIRTUAL_MACHINE_TAG);
+		logger.trace("listVirtualMachineStatus(): Found " + vmNodes.getLength() + " VMs in region");
+		for (int i=0; i < vmNodes.getLength(); i++){
+			String vmId = Terremark.hrefToId(vmNodes.item(i).getAttributes().getNamedItem(Terremark.HREF).getNodeValue());
+			String status = vmNodes.item(i).getFirstChild().getTextContent();
+			boolean poweredOn = vmNodes.item(i).getLastChild().getPreviousSibling().getTextContent().equals("true");
+			VmState state = null;
+			if (status != null) {
+				if (status.equalsIgnoreCase("Deployed") && poweredOn){
+					state = VmState.RUNNING;
+				}
+				else if (status.equalsIgnoreCase("Deployed") && !poweredOn){
+					state = VmState.STOPPED;
+				}
+				else if (status.equalsIgnoreCase("NotDeployed")){
+					state = VmState.TERMINATED;
+				}
+				else if (status.equalsIgnoreCase("Orphaned")){
+					state = VmState.TERMINATED;
+				}
+				else if (status.equalsIgnoreCase("TaskInProgress")){
+					state = VmState.PENDING;
+				}
+				else if (status.equalsIgnoreCase("CopyInProgress")){
+					state = VmState.PENDING;
+				}
+				else {
+					state = VmState.PENDING;
+				}
+				logger.debug("VM Status = " + status + " & PoweredOn = " + poweredOn + ", Setting current state to: " + state);
+			}
+			ResourceStatus vm = new ResourceStatus(vmId, state);
+			vms.add(vm);
+		}
+		logger.trace("exit - listVirtualMachineStatus()");
+		return vms;
 	}
 
 	/**
