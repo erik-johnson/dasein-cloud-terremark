@@ -87,6 +87,7 @@ public class VMSupport implements VirtualMachineSupport {
 	public final static String POWER_OFF               = "powerOff";
 	public final static String SHUTDOWN                = "shutdown";
 	public final static String REBOOT                  = "reboot";
+	public final static String COPY_IDENTICAL_VM       = "copyIdenticalVirtualMachine";
 
 	// Response Tags
 	public final static String VIRTUAL_MACHINE_TAG     = "VirtualMachine";
@@ -96,6 +97,7 @@ public class VMSupport implements VirtualMachineSupport {
 	//Operation Names
 	public final static String CREATE_SERVER_OPERATION = "Create Server";
 	public final static String IMPORT_VM_OPERATION     = "Create Server from Catalog";
+	public final static String COPY_OPERATION          = "Copy Server";
 	public final static String POWER_ON_OPERATION      = "Power on Server";
 	public final static String SHUTDOWN_OPERATION      = "Shutdown Server";
 	public final static String POWER_OFF_OPERATION     = "Power off Server";
@@ -142,9 +144,8 @@ public class VMSupport implements VirtualMachineSupport {
 		StringBuilder str = new StringBuilder();
 		int charsAdded = 0;
 		int charNumber = 0;
-		while( charsAdded < name.length() && charsAdded<=15 ) {
+		while( charsAdded < name.length() && charsAdded < 15 ) {
 			char c = name.charAt(charNumber);
-			charNumber++;
 
 			if (charNumber==0){
 				if (!Character.isLetter(c)){
@@ -156,6 +157,7 @@ public class VMSupport implements VirtualMachineSupport {
 				str.append(c);
 				charsAdded++;
 			}
+			charNumber++;
 		}
 		return str.toString();
 	}
@@ -434,7 +436,41 @@ public class VMSupport implements VirtualMachineSupport {
 	 */
 	@Override
 	public VirtualMachine clone(@Nonnull String vmId, @Nonnull String intoDcId, @Nonnull String name, @Nonnull String description, boolean powerOn, @Nullable String ... firewallIds) throws InternalException, CloudException {
-		throw new OperationNotSupportedException("Not yet implemented"); //TODO: Implement this.
+		/*
+		VirtualMachine vmCopy = null;
+		String url = "/" + VIRTUAL_MACHINES + "/" + EnvironmentsAndComputePools.COMPUTE_POOLS + "/" + intoDcId + "/" + Terremark.ACTION + "/" + COPY_IDENTICAL_VM;
+		
+		String body = "";
+
+		DocumentBuilderFactory docFactory = DocumentBuilderFactory.newInstance();
+		DocumentBuilder docBuilder;
+		try {
+			docBuilder = docFactory.newDocumentBuilder();
+
+			Document doc = docBuilder.newDocument();
+			Element rootElement = doc.createElement("CreateSshKey");
+			rootElement.setAttribute(Terremark.NAME, name);
+			doc.appendChild(rootElement);
+
+			StringWriter stw = new StringWriter(); 
+			Transformer serializer = TransformerFactory.newInstance().newTransformer(); 
+			serializer.transform(new DOMSource(doc), new StreamResult(stw)); 
+			body = stw.toString();
+		} catch (ParserConfigurationException e) {
+			e.printStackTrace();
+		} catch (TransformerException e) {
+			e.printStackTrace();
+		}
+		
+		TerremarkMethod method = new TerremarkMethod(provider, HttpMethodName.POST, url, null, body);
+		Document doc = method.invoke();
+		if (doc != null) {
+			String taskHref = Terremark.getTaskHref(doc, POWER_OFF_OPERATION);
+			provider.waitForTask(taskHref, DEFAULT_SLEEP, DEFAULT_TIMEOUT);
+		}
+		return vmCopy;
+		*/
+		throw new OperationNotSupportedException("In progress");
 	}
 
 	/**
@@ -1237,11 +1273,19 @@ public class VMSupport implements VirtualMachineSupport {
 			}
 		}
 		else {
-			String availableIpAddress = provider.getNetworkServices().getIpAddressSupport().requestForVLAN(IPVersion.IPV4, inVlanId);
-			if (availableIpAddress == null) {
+			IPVersion version;
+			if (inVlanId.contains("ipv6")) {
+				version = IPVersion.IPV6;
+			}
+			else {
+				version = IPVersion.IPV4;
+			}
+			String availableIpAddressId = provider.getNetworkServices().getIpAddressSupport().requestForVLAN(version, inVlanId);
+			if (availableIpAddressId == null) {
 				throw new CloudException("Failed to find an available private ip");
 			}
 			else {
+				String availableIpAddress = provider.getNetworkServices().getIpAddressSupport().getIpAddress(availableIpAddressId).getRawAddress().getIpAddress();
 				List<String> networkIps = new ArrayList<String>();
 				networkIps.add(availableIpAddress);
 				networkMap.put(inVlanId, networkIps);
@@ -1253,7 +1297,7 @@ public class VMSupport implements VirtualMachineSupport {
 		logger.debug("launchFromCatalogItem(): getting virtual machine " + vmId);
 		server = getVirtualMachine(vmId);	
 
-		if (server.getCurrentState().equals(VmState.PAUSED)) {
+		if (server.getCurrentState().equals(VmState.STOPPED)) {
 			start(vmId);
 			server = getVirtualMachine(vmId);
 		}
@@ -1369,8 +1413,9 @@ public class VMSupport implements VirtualMachineSupport {
 				String tagValue = tags.get(key).toString();
 				tagElement.appendChild(doc.createTextNode(key + "=" + tagValue));
 				tagsElement.appendChild(tagElement);
-				rootElement.appendChild(tagsElement);
 			}
+			rootElement.appendChild(tagsElement);
+			
 			String machineImageId = templateId + ":" + dataCenterId + ":" + Template.ImageType.TEMPLATE;
 			template = provider.getComputeServices().getImageSupport().getImage(machineImageId);
 
@@ -1398,10 +1443,26 @@ public class VMSupport implements VirtualMachineSupport {
 				}
 				else {
 					NetworkInterface nic = new NetworkInterface();
-					RawAddress[] addresses = new RawAddress[1];
+					RawAddress[] addresses = null;
 					RawAddress rawAddress = new RawAddress(availableIpAddress);
-					addresses[0] = rawAddress;
+					
 
+					if (rawAddress.getVersion().equals(IPVersion.IPV6)) {
+						addresses = new RawAddress[2];
+						addresses[0] = rawAddress;
+						
+						String ipV4Vlan = inVlanId.replace("/ipv6", "");
+						String availableIpAddressV4 = provider.getNetworkServices().getIpAddressSupport().getUnreservedAvailablePrivateIp(ipV4Vlan);
+						if (availableIpAddress != null) {
+							RawAddress rawAddressV4 = new RawAddress(availableIpAddressV4);
+							addresses[1] = rawAddressV4;
+						}
+					}
+					else {
+						addresses = new RawAddress[1];
+						addresses[0] = rawAddress;
+					}
+					
 					nic.setIpAddresses(addresses);
 					nic.setProviderVlanId(inVlanId);
 					nicsToAssign.add(nic);
@@ -1642,7 +1703,7 @@ public class VMSupport implements VirtualMachineSupport {
 		logger.debug("launch(): getting virtual machine " + vmId);
 		server = getVirtualMachine(vmId);	
 
-		if (server.getCurrentState().equals(VmState.PAUSED)) {
+		if (server.getCurrentState().equals(VmState.STOPPED)) {
 			start(vmId);
 			server = getVirtualMachine(vmId);
 		}
@@ -2051,11 +2112,11 @@ public class VMSupport implements VirtualMachineSupport {
 	@Override
 	public void terminate(@Nonnull String vmId) throws InternalException, CloudException {
 		VmState status = getVirtualMachine(vmId).getCurrentState();
-		if (!status.equals(VmState.PAUSED)){
+		if (!status.equals(VmState.STOPPED)){
 			powerOff(vmId);
 			status = getVirtualMachine(vmId).getCurrentState();
 		}
-		if (!status.equals(VmState.PAUSED)){
+		if (!status.equals(VmState.STOPPED)){
 			throw new CloudException("Failed to pause server");
 		}
 		String url = "/" + VIRTUAL_MACHINES + "/" + vmId;
@@ -2457,7 +2518,50 @@ public class VMSupport implements VirtualMachineSupport {
 	 */
 	@Override
 	public void updateTags(String vmId, Tag... tags) throws CloudException, InternalException {
-		// TODO Auto-generated method stub
+		VirtualMachine vm = getVirtualMachine(vmId);
+		Map<String, String> tagsToAdd = vm.getTags();
+		for (int i=0; i<tags.length; i++) {
+			Tag tag = tags[i];
+			tagsToAdd.put(tag.getKey(), tag.getValue());
+		}
+		
+		String url = VIRTUAL_MACHINES + "/" + vmId;
+		String body = "";
+
+		DocumentBuilderFactory docFactory = DocumentBuilderFactory.newInstance();
+		DocumentBuilder docBuilder;
+		try {
+			docBuilder = docFactory.newDocumentBuilder();
+
+			Document doc = docBuilder.newDocument();
+			Element rootElement = doc.createElement("VirtualMachine");
+			rootElement.setAttribute(Terremark.NAME, vm.getName());
+			doc.appendChild(rootElement);
+			
+			Element tagsElement = doc.createElement("Tags");
+
+			for(String key: tagsToAdd.keySet()){
+				if (!key.contains("nic-")) { // skip these because they are for internal communication only
+					Element tagElement = doc.createElement("Tag");
+					String tagValue = tagsToAdd.get(key).toString();
+					tagElement.appendChild(doc.createTextNode(key + "=" + tagValue));
+					tagsElement.appendChild(tagElement);	
+				}
+			}
+			rootElement.appendChild(tagsElement);
+
+			StringWriter stw = new StringWriter(); 
+			Transformer serializer = TransformerFactory.newInstance().newTransformer(); 
+			serializer.transform(new DOMSource(doc), new StreamResult(stw)); 
+			body = stw.toString();
+		} catch (ParserConfigurationException e) {
+			e.printStackTrace();
+		} catch (TransformerException e) {
+			e.printStackTrace();
+		}
+
+		TerremarkMethod method = new TerremarkMethod(provider, HttpMethodName.PUT, url, null, body);
+		method.invoke();
 
 	}
 

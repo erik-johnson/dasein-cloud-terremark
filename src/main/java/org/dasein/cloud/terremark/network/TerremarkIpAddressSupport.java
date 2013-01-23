@@ -1,6 +1,8 @@
 package org.dasein.cloud.terremark.network;
 
 import java.io.StringWriter;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -59,6 +61,7 @@ public class TerremarkIpAddressSupport  implements IpAddressSupport {
 
 	// Response Tags
 	public final static String IP_ADDRESS_TAG              = "IpAddress";
+	public final static String IP_ADDRESSES_TAG            = "IpAddresses";
 	public final static String IP_ADDRESS_V6_TAG           = "IpAddressV6";
 	public final static String PUBLIC_IP_TAG               = "PublicIp";
 	public final static String HOST_TAG                    = "Host";
@@ -624,6 +627,7 @@ public class TerremarkIpAddressSupport  implements IpAddressSupport {
 	}
 
 	private Collection<IpAddress> getIpAddresses(Document doc, String networkId, boolean unassignedOnly, boolean reservableOnly) throws CloudException, InternalException {
+		logger.trace("enter - getIpAddresses(" + doc + ", " + networkId + ", " + unassignedOnly + ", " + reservableOnly + ")");
 		Collection<IpAddress> ips = new ArrayList<IpAddress>();
 		NodeList ipAddresses = doc.getElementsByTagName(IP_ADDRESS_TAG);
 		logger.debug("Found " + ipAddresses.getLength() + " ip addresses in network " + networkId);
@@ -658,11 +662,13 @@ public class TerremarkIpAddressSupport  implements IpAddressSupport {
 				}
 			}
 			if (available) {
+				String address = ipAddress.getAttributes().getNamedItem(Terremark.NAME).getNodeValue();
 				if ((reservableOnly && reservable) || !reservableOnly) {
 					IpAddress ip = new IpAddress();
-					String address = ipAddress.getAttributes().getNamedItem(Terremark.NAME).getNodeValue();
 					ip.setAddress(address);
 					ip.setIpAddressId(networkId + "/" + address);
+					ip.setProviderVlanId(networkId);
+					ip.setForVlan(true);
 					ip.setAddressType(AddressType.PRIVATE);
 					if (networkId.contains("ipv6")) {
 						ip.setVersion(IPVersion.IPV6);
@@ -675,6 +681,9 @@ public class TerremarkIpAddressSupport  implements IpAddressSupport {
 					logger.debug("getIpAddresses(): Adding ip: " + ip);
 					ips.add(ip);
 				}
+				else {
+					logger.debug("getIpAddresses(): Skipping ip: " + address);
+				}
 			}
 			else {
 				logger.debug("getIpAddresses(): Ip unavailable");
@@ -683,6 +692,8 @@ public class TerremarkIpAddressSupport  implements IpAddressSupport {
 					String address = ipAddress.getAttributes().getNamedItem(Terremark.NAME).getNodeValue();
 					ip.setAddress(address);
 					ip.setIpAddressId(networkId + "/" + address);
+					ip.setProviderVlanId(networkId);
+					ip.setForVlan(true);
 					ip.setAddressType(AddressType.PRIVATE);
 					if (networkId.contains("ipv6")) {
 						ip.setVersion(IPVersion.IPV6);
@@ -699,6 +710,8 @@ public class TerremarkIpAddressSupport  implements IpAddressSupport {
 				}
 			}
 		}
+		logger.debug("getIpAddresses(): Found " + ips.size() + " ips matching the request.");
+		logger.trace("exit - getIpAddresses(" + doc + ", " + networkId + ", " + unassignedOnly + ", " + reservableOnly + ")");
 		return ips;
 	}
 
@@ -730,6 +743,7 @@ public class TerremarkIpAddressSupport  implements IpAddressSupport {
 	}
 
 	private Collection<IpAddress> getReservedIpAddresses(Document doc, String networkId) throws CloudException, InternalException {
+		logger.trace("enter - getReservedIpAddresses(" + doc + ", " + networkId + ")");
 		Collection<IpAddress> ips = new ArrayList<IpAddress>();
 		NodeList ipAddresses = doc.getElementsByTagName(IP_ADDRESS_TAG);
 		logger.debug("getReservedIpAddresses(): Found " + ipAddresses.getLength() + " ip addresses in network " + networkId);
@@ -755,6 +769,8 @@ public class TerremarkIpAddressSupport  implements IpAddressSupport {
 				ip.setAddress(address);
 				ip.setReserved(reserved);
 				ip.setIpAddressId(networkId + "/" + address);
+				ip.setProviderVlanId(networkId);
+				ip.setForVlan(true);
 				ip.setAddressType(AddressType.PRIVATE);
 				if (networkId.contains("ipv6")) {
 					ip.setVersion(IPVersion.IPV6);
@@ -771,6 +787,8 @@ public class TerremarkIpAddressSupport  implements IpAddressSupport {
 				ips.add(ip);
 			}
 		}
+		logger.debug("getReservedIpAddresses(): Found " + ips.size() + " ips matching the request.");
+		logger.trace("exit - getReservedIpAddresses(" + doc + ", " + networkId + ")");
 		return ips;
 	}
 
@@ -814,23 +832,72 @@ public class TerremarkIpAddressSupport  implements IpAddressSupport {
 	 */
 	@Nonnull
 	public String getUnreservedAvailablePrivateIp(String networkId) throws InternalException, CloudException {
+		logger.trace("enter - getUnreservedAvailablePrivateIp(" + networkId + ")");
 		IpAddress availableIp = null;
-		Iterator<IpAddress> privateIps = provider.getNetworkServices().getIpAddressSupport().listPrivateIps(networkId, true, false, false).iterator();
+		Iterator<IpAddress> privateIps = null;
+		if (networkId.contains("ipv6")) {
+			privateIps = getNextAvailableIpv6Address(networkId).iterator();
+		}
+		else {
+			privateIps = listPrivateIps(networkId, true, false, false).iterator();
+		}
 		String availableIpId = null;
 		String availableIpAddress = null;
+		boolean reserved = false;
 		if (privateIps.hasNext()) {
 			availableIp = privateIps.next();
 			availableIpId = availableIp.getProviderIpAddressId();
 			availableIpAddress = availableIp.getRawAddress().getIpAddress();
+			reserved = availableIp.isReserved();
 		}
 		else {
 			logger.warn("getUnreservedAvailablePrivateIp(): Failed to find available ip");
 		}
 
-		if (getIpAddress(availableIpId) != null) {
+		if (availableIp != null && reserved) {
 			unreserveIp(availableIpId);
 		}
+		logger.trace("exit - getUnreservedAvailablePrivateIp(" + networkId + ")");
 		return availableIpAddress;
+	}
+
+	private Collection<IpAddress> getNextAvailableIpv6Address(String networkId) throws CloudException {
+		logger.trace("enter - getNextAvailableIpv6Address(" + networkId + ")");
+		Collection<IpAddress> addresses = new ArrayList<IpAddress>();
+		String url = "/" + TerremarkNetworkSupport.NETWORKS + "/" + networkId;
+
+		TerremarkMethod method = new TerremarkMethod(provider, HttpMethodName.GET, url, null, null);
+		Document doc = null;
+		try {
+			doc = method.invoke();
+		} catch (TerremarkException e) {
+			logger.warn("Failed to get network " + networkId);
+		} catch (CloudException e) {
+			logger.warn("Failed to get network " + networkId);
+		} catch (InternalException e) {
+			logger.warn("Failed to get network " + networkId);
+		}
+		if (doc != null){
+			String ipv6Address = doc.getElementsByTagName(IP_ADDRESSES_TAG).item(0).getLastChild().getAttributes().getNamedItem(Terremark.NAME).getNodeValue();
+			try {
+				InetAddress lastUsedIp = InetAddress.getByName(ipv6Address);
+				InetAddress nextIp = com.google.common.net.InetAddresses.increment(lastUsedIp);
+				IpAddress ip = new IpAddress();
+				ip.setAddress(nextIp.getHostAddress());
+				ip.setAddressType(AddressType.PRIVATE);
+				ip.setVersion(IPVersion.IPV6);
+				ip.setReserved(false);
+				ip.setForVlan(true);
+				ip.setProviderVlanId(networkId);
+				ip.setRegionId(provider.getContext().getRegionId());
+				logger.debug("getNextAvailableIpv6Address(): Next ip is " + ip.getRawAddress().getIpAddress());
+				addresses.add(ip);
+			} catch (UnknownHostException e) {
+				e.printStackTrace();
+			}
+		}
+		logger.trace("exit - getNextAvailableIpv6Address(" + networkId + ")");
+		return addresses;
 	}
 
 	/**
@@ -958,6 +1025,7 @@ public class TerremarkIpAddressSupport  implements IpAddressSupport {
 	 */
 	@Override
 	public Iterable<IpAddress> listIpPool(IPVersion version, boolean unassignedOnly) throws InternalException, CloudException {
+		logger.trace("enter - listIpPool(" + version + ", " + unassignedOnly + ")");
 		Collection<IpAddress> ips = new ArrayList<IpAddress>();
 
 		// List private addresses
@@ -984,7 +1052,8 @@ public class TerremarkIpAddressSupport  implements IpAddressSupport {
 					ips.add(publicIp);
 				}
 			}
-		}		
+		}	
+		logger.trace("exit - listIpPool(" + version + ", " + unassignedOnly + ")");
 		return ips;
 	}
 	
@@ -1061,6 +1130,7 @@ public class TerremarkIpAddressSupport  implements IpAddressSupport {
 	 */
 	@Override
 	public @Nonnull Iterable<IpAddress> listPrivateIpPool(boolean unassignedOnly) throws InternalException, CloudException {
+		logger.trace("enter - listPrivateIpPool(" + unassignedOnly + ")");
 		Collection<IpAddress> ips = new ArrayList<IpAddress>();
 		Iterable<VLAN> networks = provider.getNetworkServices().getVlanSupport().listVlans();
 		for (VLAN network : networks) {
@@ -1072,6 +1142,7 @@ public class TerremarkIpAddressSupport  implements IpAddressSupport {
 				}
 			}
 		}		
+		logger.trace("exit - listPrivateIpPool(" + unassignedOnly + ")");
 		return ips;
 	}
 	
@@ -1086,6 +1157,7 @@ public class TerremarkIpAddressSupport  implements IpAddressSupport {
 	 * @throws CloudException an error occurred processing the request in the cloud
 	 */
 	protected @Nonnull Iterable<IpAddress> listPrivateIps(String networkId, boolean unassignedOnly, boolean reservableOnly, boolean reservedOnly) throws InternalException, CloudException {
+		logger.trace("enter - listPrivateIps(" + networkId + ", " + unassignedOnly + ", " + reservableOnly + ", " + reservedOnly + ")");
 		Collection<IpAddress> addresses = new ArrayList<IpAddress>();
 		String url = "/" + TerremarkNetworkSupport.NETWORKS + "/" + networkId;
 
@@ -1108,6 +1180,7 @@ public class TerremarkIpAddressSupport  implements IpAddressSupport {
 				addresses = getIpAddresses(doc, networkId, unassignedOnly, reservableOnly);
 			}
 		}
+		logger.trace("exit - listPrivateIps(" + networkId + ", " + unassignedOnly + ", " + reservableOnly + ", " + reservedOnly + ")");
 		return addresses;
 	}
 
@@ -1377,22 +1450,23 @@ public class TerremarkIpAddressSupport  implements IpAddressSupport {
 		IpAddress availableIp = null;
 		Iterator<IpAddress> privateIps = provider.getNetworkServices().getIpAddressSupport().listPrivateIps(vlanId, true, false, false).iterator();		
 		String availableIpId = null;
-		String availableIpAddress = null;
+		boolean isReserved = false;
 		if (privateIps.hasNext()) {
 			availableIp = privateIps.next();
 			availableIpId = availableIp.getProviderIpAddressId();
-			availableIpAddress = availableIp.getRawAddress().getIpAddress();
+			isReserved = availableIp.isReserved();
 		}
 		else {
 			logger.warn("requestForVLAN(): Failed to find available ip");
 		}
 
-		boolean isReserved = (getIpAddress(availableIpId) != null);
-
+		logger.debug("requestForVLAN(): Found available ip " + availableIpId);
 		if (!isReserved) {
+			logger.debug("requestForVLAN(): Reserving the ip " + availableIpId);
 			reserveIp(availableIpId);
 		}
-		return availableIpAddress;
+
+		return availableIpId;
 	}
 
 	/**
@@ -1622,13 +1696,15 @@ public class TerremarkIpAddressSupport  implements IpAddressSupport {
 		return node;
 	}
 
-	private IpAddress toPrivateIp(Node publicIpNode, boolean reservedOnly) throws CloudException, InternalException {
-		boolean reserved = publicIpNode.getLastChild().getTextContent().equalsIgnoreCase("true");
+	private IpAddress toPrivateIp(Node privateIpNode, boolean reservedOnly) throws CloudException, InternalException {
+		boolean reserved = privateIpNode.getLastChild().getTextContent().equalsIgnoreCase("true");
+
 		IpAddress privateIp = null;
 		if ((reservedOnly && reserved) || !reservedOnly) {
 			privateIp = new IpAddress();
+			privateIp.setForVlan(true);
 			privateIp.setReserved(reserved);
-			NamedNodeMap attributes = publicIpNode.getAttributes();
+			NamedNodeMap attributes = privateIpNode.getAttributes();
 			String type = attributes.getNamedItem(Terremark.TYPE).getNodeValue();
 			if (type.equals(IP_ADDRESS_TYPE)) {
 				privateIp.setVersion(IPVersion.IPV4);
@@ -1637,6 +1713,7 @@ public class TerremarkIpAddressSupport  implements IpAddressSupport {
 				privateIp.setVersion(IPVersion.IPV6);
 			}
 			privateIp.setAddress(attributes.getNamedItem(Terremark.NAME).getNodeValue());
+			logger.debug("toPrivateIp(): " + privateIp + " is reserved: " + reserved);
 			privateIp.setAddressType(AddressType.PRIVATE);
 			String href = attributes.getNamedItem(Terremark.HREF).getNodeValue();
 			privateIp.setIpAddressId(Terremark.hrefToNetworkId(href));
@@ -1645,7 +1722,7 @@ public class TerremarkIpAddressSupport  implements IpAddressSupport {
 			privateIp.setProviderVlanId(networkId);
 			privateIp.setProviderLoadBalancerId(null);
 			privateIp.setRegionId(provider.getContext().getRegionId());
-			NodeList ipChildren = publicIpNode.getChildNodes();
+			NodeList ipChildren = privateIpNode.getChildNodes();
 			String networkHostId = null;
 			for (int i=0; i<ipChildren.getLength(); i++) {
 				Node ipChild = ipChildren.item(i);
@@ -1681,6 +1758,7 @@ public class TerremarkIpAddressSupport  implements IpAddressSupport {
 		publicIp.setProviderLoadBalancerId(null);
 		publicIp.setRegionId(provider.getContext().getRegionId());
 		publicIp.setServerId(null);
+		publicIp.setForVlan(false);
 		return publicIp;
 	}
 

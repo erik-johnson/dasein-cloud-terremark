@@ -32,6 +32,7 @@ import org.dasein.cloud.terremark.Terremark;
 import org.dasein.cloud.terremark.TerremarkException;
 import org.dasein.cloud.terremark.TerremarkMethod;
 import org.dasein.cloud.terremark.TerremarkMethod.HttpMethodName;
+import org.dasein.cloud.terremark.compute.VMSupport;
 import org.w3c.dom.Document;
 import org.w3c.dom.NamedNodeMap;
 import org.w3c.dom.Node;
@@ -171,8 +172,7 @@ public class TerremarkNetworkSupport  implements VLANSupport {
 	 */
 	@Override
 	public void attachNetworkInterface(String nicId, String vmId, int index) throws CloudException, InternalException {
-		// TODO Auto-generated method stub
-
+		throw new OperationNotSupportedException("Attaching a network host is not supported.");
 	}
 
 	/**
@@ -233,8 +233,7 @@ public class TerremarkNetworkSupport  implements VLANSupport {
 	 */
 	@Override
 	public void detachNetworkInterface(String nicId) throws CloudException, InternalException {
-		// TODO Auto-generated method stub
-
+		throw new OperationNotSupportedException("Detaching a network host is not supported.");
 	}
 
 	/**
@@ -261,10 +260,19 @@ public class TerremarkNetworkSupport  implements VLANSupport {
 	 * @throws InternalException a local error occurred while fetching the desired network interface
 	 */
 	public @Nonnull NetworkInterface getNetworkInterface(@Nonnull String networkHostId) throws CloudException, InternalException {
-		NetworkInterface networkInterface = new NetworkInterface();
+		NetworkInterface networkInterface = null;
 		String url = "/" + NETWORK_HOSTS + "/" + networkHostId;
 		TerremarkMethod method = new TerremarkMethod(provider, HttpMethodName.GET, url, null, null);
-		Document doc = method.invoke();
+		Document doc = null;
+		try {
+			doc = method.invoke();
+		}
+		catch (CloudException e) {
+			logger.debug("Did not find requested network interface");
+		}
+		catch (InternalException i) {
+			logger.debug("Did not find requested network interface");
+		}
 		if (doc != null) {
 			Node networkHostNode = doc.getElementsByTagName(NETWORK_HOST_TAG).item(0);
 			networkInterface = toNetworkInterface(networkHostNode);
@@ -406,8 +414,18 @@ public class TerremarkNetworkSupport  implements VLANSupport {
 	 */
 	@Override
 	public Collection<String> listFirewallIdsForNIC(String nicId) throws CloudException, InternalException {
-		// TODO Auto-generated method stub
-		return null;
+		Collection<String> firewallIds = new ArrayList<String>();
+		String url = "/" + NETWORK_HOSTS + "/" + nicId;
+		TerremarkMethod method = new TerremarkMethod(provider, HttpMethodName.GET, url, null, null);
+		Document doc = method.invoke();
+		if (doc != null) {
+			NodeList acls = doc.getElementsByTagName(FirewallRule.FIREWALL_ACL_TAG);
+			for (int i=0; i<acls.getLength(); i++) {
+				String aclId = Terremark.hrefToFirewallRuleId(acls.item(i).getAttributes().getNamedItem(Terremark.HREF).getNodeValue());
+				firewallIds.add(aclId);
+			}
+		}
+		return firewallIds;
 	}
 
 	/**
@@ -444,8 +462,18 @@ public class TerremarkNetworkSupport  implements VLANSupport {
 	 */
 	@Override
 	public Iterable<NetworkInterface> listNetworkInterfacesForVM(String forVmId) throws CloudException, InternalException {
-		// TODO Auto-generated method stub
-		return null;
+		logger.trace("enter - listNetworkInterfacesForVM(" + forVmId + ")");
+		Collection<NetworkInterface> netowrkHost = new ArrayList<NetworkInterface>();
+		String url = "/" + VMSupport.VIRTUAL_MACHINES + "/" + forVmId;
+		TerremarkMethod method = new TerremarkMethod(provider, HttpMethodName.GET, url, null, null);
+		Document doc = method.invoke();
+		if (doc != null){
+			Node networkHostNode = doc.getElementsByTagName(NETWORK_HOST_TAG).item(0);
+			String nicId = Terremark.hrefToId(networkHostNode.getAttributes().getNamedItem(Terremark.HREF).getNodeValue());
+			netowrkHost.add(getNetworkInterface(nicId));
+		}
+		logger.trace("exit - listNetworkInterfacesForVM(" + forVmId + ")");
+		return netowrkHost;
 	}
 
 	/**
@@ -469,8 +497,13 @@ public class TerremarkNetworkSupport  implements VLANSupport {
 	 */
 	@Override
 	public Iterable<NetworkInterface> listNetworkInterfacesInVLAN(String vlanId) throws CloudException, InternalException {
-		// TODO Auto-generated method stub
-		return null;
+		Collection<NetworkInterface> vlanNics = new ArrayList<NetworkInterface>();
+		for (NetworkInterface nic : listNetworkInterfaces()) {
+			if (nic.getProviderVlanId().equals(vlanId)) {
+				vlanNics.add(nic);
+			}
+		}
+		return vlanNics;
 	}
 
 	/**
@@ -481,8 +514,20 @@ public class TerremarkNetworkSupport  implements VLANSupport {
 	 */
 	@Override
 	public Iterable<ResourceStatus> listNetworkInterfaceStatus() throws CloudException, InternalException {
-		// TODO Auto-generated method stub
-		return null;
+		Collection<ResourceStatus> networkHostsStatus = new ArrayList<ResourceStatus>();
+		String url = "/" + NETWORK_HOSTS + "/" + EnvironmentsAndComputePools.ENVIRONMENTS + "/" + provider.getContext().getRegionId();
+		TerremarkMethod method = new TerremarkMethod(provider, HttpMethodName.GET, url, null, null);
+		Document doc = method.invoke();
+		if (doc != null){
+			NodeList networkHostNodes = doc.getElementsByTagName("Host");
+			for (int i=0; i<networkHostNodes.getLength(); i++) {
+				String nicId = Terremark.hrefToId(networkHostNodes.item(i).getAttributes().getNamedItem(Terremark.HREF).getNodeValue());
+				if (nicId != null) {
+					networkHostsStatus.add(new ResourceStatus(nicId, NICState.AVAILABLE));	
+				}
+			}
+		}
+		return networkHostsStatus;
 	}
 
 	/**
@@ -495,10 +540,12 @@ public class TerremarkNetworkSupport  implements VLANSupport {
 	 */
 	@Override
 	public Iterable<Networkable> listResources(String inVlanId) throws CloudException, InternalException {
+		logger.trace("enter - listResources(" + inVlanId + ")");
 		Collection<Networkable> resouces = new ArrayList<Networkable>();
 		for (IpAddress ip : provider.getNetworkServices().getIpAddressSupport().listPrivateIps(inVlanId, false, false, true)) {
 			resouces.add(ip);
 		}
+		logger.trace("exit - listResources(" + inVlanId + ")");
 		return resouces;
 	}
 
@@ -671,7 +718,7 @@ public class TerremarkNetworkSupport  implements VLANSupport {
 	 */
 	@Override
 	public boolean supportsRawAddressRouting() throws CloudException, InternalException {
-		throw new OperationNotSupportedException("Routing tables not supported.");
+		return false;
 	}
 
 	private NetworkInterface toNetworkInterface(Node networkHostNode) {
@@ -691,10 +738,10 @@ public class TerremarkNetworkSupport  implements VLANSupport {
 				networkInterface.setProviderVirtualMachineId(vmId);
 			}
 			else if (hostChild.getNodeName().equals(NETWORKS_TAG)){
-				NodeList networksChildren = networkHostNode.getChildNodes();
+				NodeList networksChildren = hostChild.getChildNodes();
 				for (int j=0; j < networksChildren.getLength(); j++) {
 					Node networkNode = networksChildren.item(j);
-					networkInterface.setProviderVlanId(Terremark.hrefToId(networkNode.getAttributes().getNamedItem(Terremark.HREF).getNodeValue()));
+					networkInterface.setProviderVlanId(Terremark.hrefToNetworkId(networkNode.getAttributes().getNamedItem(Terremark.HREF).getNodeValue()));
 					NodeList networkChildren = networkNode.getChildNodes();
 					for (int k=0; k<networkChildren.getLength(); k++) {
 						if (networkChildren.item(k).getNodeName().equals(TerremarkIpAddressSupport.IP_ADDRESS_TAG)) {
@@ -729,7 +776,7 @@ public class TerremarkNetworkSupport  implements VLANSupport {
 		VLAN network = new VLAN();
 		network.setProviderOwnerId(provider.getContext().getAccountNumber());
 		NamedNodeMap networkAttrs = networkNode.getAttributes();
-		String vlanId = Terremark.hrefToId(networkAttrs.getNamedItem(Terremark.HREF).getTextContent());
+		String vlanId = Terremark.hrefToNetworkId(networkAttrs.getNamedItem(Terremark.HREF).getTextContent());
 		network.setProviderVlanId(vlanId);
 		logger.debug("toVLAN(): VLAN ID = " + network.getProviderVlanId());
 		String vlanName = networkAttrs.getNamedItem(Terremark.NAME).getTextContent();

@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.Locale;
 
 import javax.annotation.Nonnull;
@@ -368,6 +369,7 @@ public class Template  implements MachineImageSupport {
 				logger.debug("Adding tag: " + networkMappingTag);
 				catalogEntry.addTag(networkMappingTag);
 			}
+			catalogEntry.setSoftware("");
 		}
 		logger.trace("exit - catalogEntryToMachineImage()");
 		return catalogEntry;
@@ -873,34 +875,34 @@ public class Template  implements MachineImageSupport {
 
 
 	private Collection<MachineImage> listTemplates() throws InternalException, CloudException {
-		logger.trace("enter - listMachineImages()");
+		logger.trace("enter - listTemplates()");
 		ArrayList<MachineImage> images = new ArrayList<MachineImage>();
 		ArrayList<String> templateIds = new ArrayList<String>();
 		Collection<DataCenter> dcs = provider.getDataCenterServices().listDataCenters(provider.getContext().getRegionId());
-		logger.debug("listMachineImage(): dcs size = " + dcs.size());
+		logger.debug("listTemplates(): dcs size = " + dcs.size());
 		for (DataCenter dc : dcs){
 			String url = "/" + TEMPLATES + "/" + EnvironmentsAndComputePools.COMPUTE_POOLS + "/" + dc.getProviderDataCenterId();
 			TerremarkMethod method = new TerremarkMethod(provider, HttpMethodName.GET, url, null, null);
 			Document doc = method.invoke();
 			NodeList templates = doc.getElementsByTagName(TEMPLATE_TAG);
-			logger.debug("listMachineImage(): templates length = " + templates.getLength());
+			logger.debug("listTemplates(): templates length = " + templates.getLength());
 			for (int i = 0; i<templates.getLength(); i++){
 				String templateHref = templates.item(i).getAttributes().getNamedItem(Terremark.HREF).getNodeValue();
 				templateIds.add(Terremark.getTemplateIdFromHref(templateHref));
 			}
 		}
-		logger.debug("listMachineImage(): templateIds size = " + templateIds.size());
+		logger.debug("listTemplates(): templateIds size = " + templateIds.size());
 		for (String templateId : templateIds){
-			MachineImage image = getMachineImage(templateId);
+			MachineImage image = getImage(templateId);
 			if (image != null){
-				logger.debug("listMachineImage(): adding image = " + image);
+				logger.debug("listTemplates(): adding image = " + image);
 				images.add(image);
 			}
 			else {
-				logger.debug("listMachineImage(): image is null.");
+				logger.debug("listTemplates(): image is null.");
 			}
 		}
-		logger.trace("exit - listMachineImages()");
+		logger.trace("exit - listTemplates()");
 		return images;
 	}
 
@@ -1044,7 +1046,7 @@ public class Template  implements MachineImageSupport {
 	 */
 	@Override
 	public Iterable<MachineImage> searchImages(String accountNumber, String keyword, Platform platform, Architecture architecture, ImageClass... imageClasses) throws CloudException, InternalException {
-		logger.trace("enter - searchImages(" + keyword + ", " + platform + ", " + architecture + ")");
+		logger.trace("enter - searchImages(" + accountNumber + ", " + keyword + ", " + platform + ", " + architecture + ")");
 
 		boolean machineClass = false;
 
@@ -1114,7 +1116,18 @@ public class Template  implements MachineImageSupport {
 	 */
 	@Override
 	public @Nonnull Iterable<MachineImage> searchMachineImages(@Nullable String keyword, @Nullable Platform platform, @Nullable Architecture architecture) throws CloudException, InternalException {
-		return searchImages(null, keyword, platform, architecture, ImageClass.MACHINE);
+		Collection<MachineImage> imageResults = new ArrayList<MachineImage>();
+		Iterable<MachineImage> privateImages = searchImages(null, keyword, platform, architecture, ImageClass.MACHINE);
+		Iterator<MachineImage> imageItr = privateImages.iterator();
+		while (imageItr.hasNext()) {
+			imageResults.add(imageItr.next());
+		}
+		Iterable<MachineImage> publicImages = searchPublicImages(keyword, platform, architecture, ImageClass.MACHINE);
+		imageItr = publicImages.iterator();
+		while (imageItr.hasNext()) {
+			imageResults.add(imageItr.next());
+		}
+		return imageResults;
 	}
 
 	/**
@@ -1134,12 +1147,12 @@ public class Template  implements MachineImageSupport {
 
 		boolean machineClass = false;
 
-		if (imageClasses == null) {
+		if (imageClasses == null || imageClasses.length == 0) {
 			machineClass = true;
 		}
 		else {
 			for (ImageClass imageClass : imageClasses) {
-				if (imageClass == ImageClass.MACHINE) {
+				if (imageClass.equals(ImageClass.MACHINE)) {
 					machineClass = true;
 					break;
 				}
@@ -1181,6 +1194,7 @@ public class Template  implements MachineImageSupport {
 						continue;
 					}
 				}
+				logger.debug("searchMachineImages(): Adding image " + image + " to results");
 				results.add(image);
 			}
 		}

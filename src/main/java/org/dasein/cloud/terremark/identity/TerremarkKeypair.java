@@ -51,19 +51,21 @@ public class TerremarkKeypair  implements ShellKeySupport {
 		this.provider =  cloud;
 	}
 
-    /**
-     * Creates an SSH keypair having the specified name.
-     * @param name the name of the SSH keypair
-     * @return a new SSH keypair
-     * @throws InternalException an error occurred within Dasein Cloud while processing the request
-     * @throws CloudException an error occurred in the cloud provider executing the keypair creation
-     */
+	/**
+	 * Creates an SSH keypair having the specified name.
+	 * @param name the name of the SSH keypair
+	 * @return a new SSH keypair
+	 * @throws InternalException an error occurred within Dasein Cloud while processing the request
+	 * @throws CloudException an error occurred in the cloud provider executing the keypair creation
+	 */
 	public @Nonnull SSHKeypair createKeypair(@Nonnull String name) throws InternalException, CloudException {
 		logger.trace("enter - createKeypair()");
 		SSHKeypair key = null;
 		String orgId = provider.getOrganization().getId();
 		String url = "/admin/" + SSH_KEYS + "/" + Terremark.ORGANZIATIONS + "/" + orgId + "/" + Terremark.ACTION + "/createSshKey";
 		String body = "";
+
+		name = validateName(name);
 
 		DocumentBuilderFactory docFactory = DocumentBuilderFactory.newInstance();
 		DocumentBuilder docBuilder;
@@ -93,6 +95,39 @@ public class TerremarkKeypair  implements ShellKeySupport {
 			key = toSSHKeypair(sshKey);
 		}
 		return key;
+	}
+
+	/**
+	 * Creates a valid name for a Terremark ssh key
+	 * @param name The proposed name
+	 * @return A valid name based on the proposed name.
+	 */
+	private String validateName(String name) {
+		// Terremark ssh key name rules: Max length of 50 characters. Only the characters a - z, A - Z, 0 - 9, underscores, or spaces allowed in the key name.
+		if (name.length() > 50) {
+			name.substring(0, 50);
+		}
+
+		StringBuilder str = new StringBuilder();
+
+		for( int i=0; i<name.length(); i++ ) {
+			char c = name.charAt(i);
+
+			if( Character.isLetterOrDigit(c) ) {
+				str.append(c);
+			}
+			else if( c == ' ' || c == '_' ) {
+				str.append(c);
+			}
+			else if( c == '-' ) {
+				str.append('_');
+			}
+		}
+		if( str.length() < 1 ) {
+			str.append("unnamed");
+		}
+
+		return str.toString();
 	}
 
 	/**
@@ -132,16 +167,16 @@ public class TerremarkKeypair  implements ShellKeySupport {
 		return fingerprint;
 	}
 
-    /**
-     * Indicates to what degree key importing vs. creation is supported. If importing is not supported, then that
-     * means all keys must be created through the cloud provider via {@link #createKeypair(String)}. If importing is
-     * required, it means all key creation must be done by importing your keys through {@link #importKeypair(String, String)}.
-     * If optional, then you can either import or create keys. When you have the choice, it is always recommended that
-     * you import keys.
-     * @return the requirement state of importing key pairs
-     * @throws CloudException an error occurred with the cloud provider in determining support
-     * @throws InternalException a local error occurred while determining support
-     */
+	/**
+	 * Indicates to what degree key importing vs. creation is supported. If importing is not supported, then that
+	 * means all keys must be created through the cloud provider via {@link #createKeypair(String)}. If importing is
+	 * required, it means all key creation must be done by importing your keys through {@link #importKeypair(String, String)}.
+	 * If optional, then you can either import or create keys. When you have the choice, it is always recommended that
+	 * you import keys.
+	 * @return the requirement state of importing key pairs
+	 * @throws CloudException an error occurred with the cloud provider in determining support
+	 * @throws InternalException a local error occurred while determining support
+	 */
 	@Override
 	public Requirement getKeyImportSupport() throws CloudException, InternalException {
 		return Requirement.NONE;
@@ -187,14 +222,14 @@ public class TerremarkKeypair  implements ShellKeySupport {
 		return "SSH key";
 	}
 
-    /**
-     * Imports the specified public key into your store of keys with the cloud provider under the specified name.
-     * @param name the name of the key to be imported
-     * @param publicKey the MD5 public key fingerprint as specified in section 4 of RFC4716
-     * @return the unique ID of the key as it is stored with the cloud provider
-     * @throws InternalException a local error occurred assembling the request
-     * @throws CloudException an error occurred with the cloud provider while importing the keys
-     */
+	/**
+	 * Imports the specified public key into your store of keys with the cloud provider under the specified name.
+	 * @param name the name of the key to be imported
+	 * @param publicKey the MD5 public key fingerprint as specified in section 4 of RFC4716
+	 * @return the unique ID of the key as it is stored with the cloud provider
+	 * @throws InternalException a local error occurred assembling the request
+	 * @throws CloudException an error occurred with the cloud provider while importing the keys
+	 */
 	@Override
 	public SSHKeypair importKeypair(String name, String publicKey) throws InternalException, CloudException {
 		throw new OperationNotSupportedException("Importing keypairs is not supported in Terremark.");

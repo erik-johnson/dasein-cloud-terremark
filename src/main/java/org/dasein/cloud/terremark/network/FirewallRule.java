@@ -324,8 +324,7 @@ public class FirewallRule implements FirewallSupport {
 
 		if (doc != null) {
 			String ruleHref = doc.getElementsByTagName(FIREWALL_ACL_TAG).item(0).getAttributes().getNamedItem(Terremark.HREF).getNodeValue();
-			String uri = FIREWALL_ACLS + "/";
-			providerRuleId = ruleHref.substring(ruleHref.lastIndexOf(uri)+uri.length());
+			providerRuleId = Terremark.hrefToFirewallRuleId(ruleHref);
 		}
 
 		return providerRuleId;
@@ -558,8 +557,7 @@ public class FirewallRule implements FirewallSupport {
 
 		if (doc != null) {
 			String ruleHref = doc.getElementsByTagName(FIREWALL_ACL_TAG).item(0).getAttributes().getNamedItem(Terremark.HREF).getNodeValue();
-			String uri = FIREWALL_ACLS + "/";
-			providerRuleId = ruleHref.substring(ruleHref.lastIndexOf(uri)+uri.length());
+			providerRuleId = Terremark.hrefToFirewallRuleId(ruleHref);
 		}
 
 		return providerRuleId;
@@ -920,8 +918,7 @@ public class FirewallRule implements FirewallSupport {
 		int endPort = -1;
 
 		String href = firewallAcl.getAttributes().getNamedItem(Terremark.HREF).getNodeValue();
-		String uri = FIREWALL_ACLS + "/";
-		firewallRuleId = href.substring(href.lastIndexOf(uri)+uri.length());
+		firewallRuleId = Terremark.hrefToFirewallRuleId(href);
 
 		String sourceType = null;
 		String destinationType = null;

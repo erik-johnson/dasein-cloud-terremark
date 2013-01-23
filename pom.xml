@@ -47,7 +47,7 @@
 		<dependency>
 			<groupId>org.dasein</groupId>
 			<artifactId>dasein-cloud-core</artifactId>
-			<version>2013.02</version>
+			<version>2013.02.1</version>
 			<scope>compile</scope>
 			<optional>false</optional>
 		</dependency>
@@ -86,7 +86,7 @@
 		<dependency>
 			<groupId>org.dasein</groupId>
 			<artifactId>dasein-cloud-test</artifactId>
-			<version>2013.01.1</version>
+			<version>2013.02.3</version>
 			<scope>test</scope>
 			<optional>false</optional>
 		</dependency>
@@ -95,6 +95,11 @@
 			<artifactId>junit</artifactId>
 			<version>4.9</version>
 			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>com.google.guava</groupId>
+			<artifactId>guava</artifactId>
+			<version>14.0-rc2</version>
 		</dependency>
 	</dependencies>
 	<build>
@@ -238,7 +243,7 @@
 						</property>
 					</systemProperties>
 					<includes>
-						<include>**/TerremarkTestSuite.java</include> 
+						<include>**/TerremarkTestSuite.java</include>
 					</includes>
 				</configuration>
 			</plugin>
@@ -258,33 +263,33 @@
 			</plugin>
 		</plugins>
 		<pluginManagement>
-            <plugins>
-                <plugin>
-                    <groupId>org.eclipse.m2e</groupId>
-                    <artifactId>lifecycle-mapping</artifactId>
-                    <version>1.0.0</version>
-                    <configuration>
-                        <lifecycleMappingMetadata>
-                            <pluginExecutions>
-                                <pluginExecution>
-                                    <pluginExecutionFilter>
-                                        <groupId>org.apache.maven.plugins</groupId>
-                                        <artifactId>maven-dependency-plugin</artifactId>
-                                        <versionRange>[2.0,)</versionRange>
-                                        <goals>
-                                            <goal>copy-dependencies</goal>
-                                        </goals>
-                                    </pluginExecutionFilter>
-                                    <action>
-                                        <ignore />
-                                    </action>
-                                </pluginExecution>
-                            </pluginExecutions>
-                        </lifecycleMappingMetadata>
-                    </configuration>
-                </plugin>
-            </plugins>
-        </pluginManagement>
+			<plugins>
+				<plugin>
+					<groupId>org.eclipse.m2e</groupId>
+					<artifactId>lifecycle-mapping</artifactId>
+					<version>1.0.0</version>
+					<configuration>
+						<lifecycleMappingMetadata>
+							<pluginExecutions>
+								<pluginExecution>
+									<pluginExecutionFilter>
+										<groupId>org.apache.maven.plugins</groupId>
+										<artifactId>maven-dependency-plugin</artifactId>
+										<versionRange>[2.0,)</versionRange>
+										<goals>
+											<goal>copy-dependencies</goal>
+										</goals>
+									</pluginExecutionFilter>
+									<action>
+										<ignore />
+									</action>
+								</pluginExecution>
+							</pluginExecutions>
+						</lifecycleMappingMetadata>
+					</configuration>
+				</plugin>
+			</plugins>
+		</pluginManagement>
 	</build>
 	<distributionManagement>
 		<repository>

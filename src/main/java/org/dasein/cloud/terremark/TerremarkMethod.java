@@ -42,6 +42,7 @@ import org.dasein.cloud.CloudException;
 import org.dasein.cloud.InternalException;
 import org.dasein.cloud.ProviderContext;
 import org.w3c.dom.Document;
+import org.w3c.dom.Node;
 import org.xml.sax.SAXException;
 
 
@@ -58,6 +59,12 @@ public class TerremarkMethod {
 		public int code;
 		public String message;
 	}
+	
+	// Error Tags & Attributes
+	public final static String ERROR_TAG        = "Error";
+	public final static String MESSAGE_ATTR     = "message";
+	public final static String MAJOR_CODE_ATTR  = "majorErrorCode";
+	public final static String MINOR_CODE_ATTR  = "minorErrorCode";
 
 	private int                attempts    = 0;
 	private NameValuePair[]    parameters  = null;
@@ -108,7 +115,7 @@ public class TerremarkMethod {
 			if( logger.isDebugEnabled() ) {
 				logger.debug("Talking to server at " + url);
 			}
-			
+
 			if (parameters != null ){
 				URIBuilder uri = null;
 				try {
@@ -121,7 +128,7 @@ public class TerremarkMethod {
 				}
 				url = uri.toString();
 			}
-			
+
 			HttpUriRequest method = null;
 			if (methodType.equals(HttpMethodName.GET)){
 				method = new HttpGet(url);
@@ -146,20 +153,18 @@ public class TerremarkMethod {
 				HttpClient client = new DefaultHttpClient();
 				HttpParams params = new BasicHttpParams();
 
-		        HttpProtocolParams.setVersion(params, HttpVersion.HTTP_1_1);
-		        HttpProtocolParams.setContentCharset(params, "UTF-8");
-		        HttpProtocolParams.setUserAgent(params, "Dasein Cloud");
-		        
-				
+				HttpProtocolParams.setVersion(params, HttpVersion.HTTP_1_1);
+				HttpProtocolParams.setContentCharset(params, "UTF-8");
+				HttpProtocolParams.setUserAgent(params, "Dasein Cloud");
 
 				attempts++;
-				
+
 				String proxyHost = provider.getProxyHost();
-	            if( proxyHost != null ) {
-	            	int proxyPort = provider.getProxyPort();
-	            	boolean ssl = url.startsWith("https");
-	                params.setParameter(ConnRoutePNames.DEFAULT_PROXY, new HttpHost(proxyHost, proxyPort, ssl ? "https" : "http"));
-	            }
+				if( proxyHost != null ) {
+					int proxyPort = provider.getProxyPort();
+					boolean ssl = url.startsWith("https");
+					params.setParameter(ConnRoutePNames.DEFAULT_PROXY, new HttpHost(proxyHost, proxyPort, ssl ? "https" : "http"));
+				}
 				for( Map.Entry<String, String> entry : headers.entrySet() ) {
 					method.addHeader(entry.getKey(), entry.getValue());
 				}
@@ -223,19 +228,33 @@ public class TerremarkMethod {
 				}
 				else if( statusCode == HttpStatus.SC_FORBIDDEN ) {
 					String msg = "OperationNotAllowed ";
-					msg += status.getEntity().toString();
+					try {
+						msg += parseResponseToString(status.getEntity().getContent());
+					} catch (IllegalStateException e) {
+						e.printStackTrace();
+					} catch (IOException e) {
+						e.printStackTrace();
+					}
 					wire.error(msg);
 					throw new TerremarkException(statusCode, "OperationNotAllowed", msg);
 				}
 				else {
+					String response = "Failed to parse response.";
+					ParsedError parsedError = null;
+					try {
+						response = parseResponseToString(status.getEntity().getContent());
+						parsedError = parseErrorResponse(response);
+					} catch (IllegalStateException e1) {
+						e1.printStackTrace();
+					} catch (IOException e1) {
+						e1.printStackTrace();
+					}
 					if( logger.isDebugEnabled() ) {
 						logger.debug("Received " + status + " from " + url);
 					}
 					if( statusCode == HttpStatus.SC_SERVICE_UNAVAILABLE || statusCode == HttpStatus.SC_INTERNAL_SERVER_ERROR ) {
 						if( attempts >= 5 ) {
 							String msg;
-							String response = "";
-							response = status.getEntity().toString();
 							wire.warn(response);
 							if( statusCode == HttpStatus.SC_SERVICE_UNAVAILABLE ) {
 								msg = "Cloud service is currently unavailable.";
@@ -254,7 +273,12 @@ public class TerremarkMethod {
 							}
 							wire.error(response);
 							logger.error(msg);
-							throw new CloudException(msg);
+							if (parsedError != null) {
+								throw new TerremarkException(parsedError);
+							}
+							else {
+								throw new CloudException("HTTP Status " + statusCode + msg);
+							}
 						}
 						else {
 							try { Thread.sleep(5000L); }
@@ -262,15 +286,22 @@ public class TerremarkMethod {
 							return invoke();
 						}
 					}
-					String msg = "";
-					msg = "\nResponse from server was:\n" + status.getEntity().toString();
-					wire.error(msg);
-					throw new CloudException("HTTP Status " + status + msg);
+					wire.error(response);
+					if (parsedError != null) {
+						throw new TerremarkException(parsedError);
+					}
+					else {
+						String msg = "\nResponse from server was:\n" + response;
+						logger.error(msg);
+						throw new CloudException("HTTP Status " + statusCode + msg);
+					}			
 				}
 			}
 			finally {
 				try {
-					EntityUtils.consume(status.getEntity());
+					if (status != null) {
+						EntityUtils.consume(status.getEntity());
+					}
 				} catch (IOException e) {
 					e.printStackTrace();
 				}
@@ -314,6 +345,36 @@ public class TerremarkMethod {
 			throw new CloudException(e);
 		}   
 	}
+	
+	private static ParsedError parseErrorResponse(String responseBody) throws CloudException, InternalException {
+		try {
+			ByteArrayInputStream bas = new ByteArrayInputStream(responseBody.getBytes());
+
+			DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+			DocumentBuilder parser = factory.newDocumentBuilder();
+			Document doc = parser.parse(bas);
+
+			bas.close();
+			
+			Node errorNode = doc.getElementsByTagName(ERROR_TAG).item(0);
+			ParsedError error = new ParsedError();
+			if (errorNode != null) {
+				error.message = errorNode.getAttributes().getNamedItem(MESSAGE_ATTR).getNodeValue();
+				error.code = Integer.parseInt(errorNode.getAttributes().getNamedItem(MAJOR_CODE_ATTR).getNodeValue());
+			}
+			
+			return error;
+		}
+		catch( IOException e ) {
+			throw new CloudException(e);
+		}
+		catch( ParserConfigurationException e ) {
+			throw new CloudException(e);
+		}
+		catch( SAXException e ) {
+			throw new CloudException(e);
+		}   
+	}
 
 	private Document parseResponse(InputStream responseBodyAsStream) throws CloudException, InternalException {
 		try {
@@ -328,6 +389,25 @@ public class TerremarkMethod {
 			in.close();
 
 			return parseResponse(sb.toString());
+		}
+		catch( IOException e ) {
+			throw new CloudException(e);
+		}			
+	}
+
+	private String parseResponseToString(InputStream responseBodyAsStream) throws CloudException, InternalException {
+		try {
+			BufferedReader in = new BufferedReader(new InputStreamReader(responseBodyAsStream));
+			StringBuilder sb = new StringBuilder();
+			String line;
+
+			while( (line = in.readLine()) != null ) {
+				sb.append(line);
+				sb.append("\n");
+			}
+			in.close();
+
+			return sb.toString();
 		}
 		catch( IOException e ) {
 			throw new CloudException(e);

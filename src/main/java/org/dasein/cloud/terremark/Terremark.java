@@ -31,6 +31,7 @@ import org.dasein.cloud.terremark.TerremarkMethod.HttpMethodName;
 import org.dasein.cloud.terremark.compute.Template;
 import org.dasein.cloud.terremark.compute.TerremarkComputeServices;
 import org.dasein.cloud.terremark.identity.TerremarkIdentityServices;
+import org.dasein.cloud.terremark.network.FirewallRule;
 import org.dasein.cloud.terremark.network.TerremarkNetworkServices;
 import org.dasein.cloud.terremark.network.TerremarkNetworkSupport;
 import org.dasein.util.CalendarWrapper;
@@ -40,10 +41,214 @@ import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
 public class Terremark  extends AbstractCloud {
+	public class Task {
+		public String taskId;
+		public String errorMessage;
+		public String status;
+	}
+
 	static private final Logger logger = Logger.getLogger(Terremark.class);
 
-	public Terremark() { }
+	private transient volatile TerremarkProvider provider;
 
+	//Required Headers
+	static public final String AUTHORIZATION         = "Authorization";
+
+	static public final String DATE                  = "Date";
+
+	static public final String TMRK_AUTHORIZATION    = "x-tmrk-authorization";
+
+	static public final String TMRK_DATE             = "x-tmrk-date";
+
+	static public final String TMRK_VERSION          = "x-tmrk-version";
+	
+    //Conditional Headers
+	static public final String ACCEPT                = "Accept";
+
+    static public final String CONTENT_LENGTH        = "Content-Length";
+
+	static public final String CONTENT_LOCATION      = "Content-Location";
+
+	static public final String CONTENT_RANGE         = "Content-Range";
+
+	static public final String CONTENT_TYPE          = "Content-Type";
+
+	static public final String LOCATION              = "Location";
+	static public final String GUEST_PASSWORD        = "X-Guest-Password";
+	static public final String GUEST_USER            = "X-Guest-User";
+	static public final String RESPONDING_HOST       = "X-Responding-Host";
+	static public final String TMRK_CONTENTHASH      = "x-tmrk-contenthash";
+
+	static public final String TMRK_TOKEN            = "x-tmrk-token";
+	//Response-Only Headers
+	static public final String TMRK_CURRENTUSER      = "x-tmrk-currentuser";
+	static public final String TMRK_DEPRECATED       = "x-tmrk-deprecated";
+	// Header Values
+	static public final String VERSION               = "2012-09-01";
+	static public final String ALGORITHM             = "HmacSha512";
+	public final static String RFC1123_PATTERN       = "EEE, dd MMM yyyy HH:mm:ss z";
+	public final static String ISO8601_PATTERN       = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'";
+	public final static String TMRK_URI              = "https://services.enterprisecloud.terremark.com";
+	public final static String URI_PATH              = "/cloudapi/ecloud";
+	public final static String LIVE_SPEC_URI_PATH    = "/cloudapi/spec";
+	public final static String DEFAULT_URI_PATH      = URI_PATH;
+
+	public final static String JSON                  = "application/json";
+	public final static String XML                   = "application/xml";
+
+	// API Calls
+	public final static String ORGANZIATIONS         = "organizations";
+	public final static String ACTION                = "action";
+	public final static String ADMIN                 = "admin";
+	// Common Response Attributes
+	public final static String NAME                  = "name";
+	public final static String HREF                  = "href";
+	public final static String TYPE                  = "type";
+	// Task Tags & Status
+	public final static String TASK_TAG              = "Task";
+	public final static String OPERATION_TAG         = "Operation";
+	public final static String STATUS_TAG            = "Status";
+	public final static String ERROR_MESSAGE_TAG     = "ErrorMessage";
+
+	public final static String TASK_COMPLETE         = "Complete";
+	public final static String TASK_QUEUED           = "Queued";
+	public final static String TASK_RUNNING          = "Running";
+
+	public final static String TASK_ERROR            = "Error";
+	public final static int TASK_ERROR_COUNT         = 5;
+	static private String getLastItem(String name) {
+		int idx = name.lastIndexOf('.');
+
+		if( idx < 0 ) {
+			return name;
+		}
+		else if( idx == (name.length()-1) ) {
+			return "";
+		}
+		return name.substring(idx+1);
+	}
+
+	static public Logger getLogger(Class<?> cls) {
+		String pkg = getLastItem(cls.getPackage().getName());
+
+		if( pkg.equals("terremark") ) {
+			pkg = "";
+		}
+		else {
+			pkg = pkg + ".";
+		}
+		return Logger.getLogger("dasein.cloud.terremark.std." + pkg + getLastItem(cls.getName()));
+	}
+	private static String getRfcDate() {
+		Date date = new Date();
+		SimpleDateFormat format = new SimpleDateFormat(RFC1123_PATTERN);
+		format.setTimeZone(TimeZone.getTimeZone("GMT"));
+		return format.format(date);
+	}
+	public static String getTaskHref(Document doc, String taskName) {
+		String href = null;
+		NodeList taskElements = doc.getElementsByTagName(Terremark.TASK_TAG);
+		for (int i=0; i<taskElements.getLength(); i++) {
+			Node taskElement = taskElements.item(i);
+			NodeList taskChildren = taskElement.getChildNodes();
+			for (int j=0; j<taskChildren.getLength(); j++) {
+				Node taskChild = taskChildren.item(j);
+				if (taskChild.getNodeName().equals(Terremark.OPERATION_TAG)) {
+					if (taskChild.getTextContent().equals(taskName)) { 
+						href = taskElement.getAttributes().getNamedItem(Terremark.HREF).getNodeValue();
+						break;
+					}
+				}
+			}
+			if (href != null) {
+				break;
+			}
+		}
+		return href;
+	}
+	public static String getTemplateIdFromHref(String templateHref){
+		String id = null;
+		String templateString = "/" + Template.TEMPLATES + "/";
+		String cpString = "/" + EnvironmentsAndComputePools.COMPUTE_POOLS.toLowerCase() + "/";
+		templateHref = templateHref.toLowerCase();
+		if (templateHref.contains(templateString) && templateHref.contains(cpString)){
+			int startTemplateId = templateHref.indexOf(templateString) + templateString.length();
+			int startCPId = templateHref.indexOf(cpString) + cpString.length();
+			id = templateHref.substring(startTemplateId, templateHref.indexOf(cpString)) + ":" + templateHref.substring(startCPId) + ":" + Template.ImageType.TEMPLATE.name();
+		}
+		return id;
+	}
+	static public Logger getWireLogger(Class<?> cls) {
+		return Logger.getLogger("dasein.cloud.terremark.wire." + getLastItem(cls.getPackage().getName()) + "." + getLastItem(cls.getName()));
+	}
+	/**
+	 * Converts a firewall acls href to the ID format ({custom | nodeServices}/{firewall rule identifier | node service identifier}).
+	 * @param href A FirewallAcl href
+	 * @return the firewall rule ID in the format {custom | nodeServices}/{firewall rule identifier | node service identifier}
+	 */
+	public static String hrefToFirewallRuleId (String href) {
+		String uri = FirewallRule.FIREWALL_ACLS + "/";
+		String firewallRuleId = href.substring(href.lastIndexOf(uri)+uri.length());
+		return firewallRuleId;
+	}
+	public static String hrefToId(String href) {
+		return href.substring(href.lastIndexOf("/")+1);
+	}
+	/**
+	 * Converts a network or IP address href to the ID format (network_id or netowrk_id/ipv6 or network_id/ip_address or network_id/ipv6/ip_address).
+	 * @param href A network or IP address href
+	 * @return the network or IP address ID in the format network_id or netowrk_id/ipv6 or network_id/ip_address or network_id/ipv6/ip_address
+	 */
+	public static String hrefToNetworkId (String href) {
+		int beginIndex = href.indexOf(TerremarkNetworkSupport.NETWORKS + "/") + TerremarkNetworkSupport.NETWORKS.length() + 1;
+		return href.substring(beginIndex, href.length());
+	}
+	
+	public static Date parseIsoDate(String isoDateString) {
+		java.text.DateFormat df = new SimpleDateFormat(ISO8601_PATTERN);
+		df.setTimeZone(TimeZone.getTimeZone("UTC"));
+		Date result = null;
+		try {
+			result = df.parse(isoDateString);
+		} catch (ParseException e) {
+			e.printStackTrace();
+		}
+		return result;
+	}
+
+	private static String sign(byte[] key, String authString, String algorithm) throws InternalException {
+		try {
+			Mac mac = Mac.getInstance(algorithm);
+
+			mac.init(new SecretKeySpec(key, algorithm));
+			return new String(Base64.encodeBase64(mac.doFinal(authString.getBytes("utf-8"))));
+		} 
+		catch( NoSuchAlgorithmException e ) {
+			logger.error(e);
+			e.printStackTrace();
+			throw new InternalException(e);
+		} 
+		catch( InvalidKeyException e ) {
+			logger.error(e);
+			e.printStackTrace();
+			throw new InternalException(e);
+		} 
+		catch( IllegalStateException e ) {
+			logger.error(e);
+			e.printStackTrace();
+			throw new InternalException(e);
+		} 
+		catch( UnsupportedEncodingException e ) {
+			logger.error(e);
+			e.printStackTrace();
+			throw new InternalException(e);
+		}
+	}
+
+	private transient volatile Organization currentOrg;
+
+	public Terremark() { }
+	
 	@Override
 	public String getCloudName() {
 		String name = getContext().getCloudName();
@@ -60,119 +265,6 @@ public class Terremark  extends AbstractCloud {
 	public @Nonnull EnvironmentsAndComputePools getDataCenterServices() {
 		return new EnvironmentsAndComputePools(this);
 	}
-
-	@Override
-	public @Nonnull TerremarkNetworkServices getNetworkServices() {
-		return new TerremarkNetworkServices(this);
-	}
-
-	@Override
-	public TerremarkIdentityServices getIdentityServices() {
-		return new TerremarkIdentityServices(this);
-	}
-
-	@Override
-	public String getProviderName() {
-        ProviderContext ctx = getContext();
-		String name = (ctx == null ? null : ctx.getProviderName());
-
-		return ((name == null) ? TerremarkProvider.ENTERPRISE_CLOUD.getName() : name);
-	}
-	
-    private transient volatile TerremarkProvider provider;
-
-    public @Nonnull TerremarkProvider getTerremarkProvider() {
-        if( provider == null ) {
-            provider = TerremarkProvider.valueOf(getProviderName());
-        }
-        return provider;
-    }
-
-	static public Logger getLogger(Class<?> cls) {
-		String pkg = getLastItem(cls.getPackage().getName());
-
-		if( pkg.equals("terremark") ) {
-			pkg = "";
-		}
-		else {
-			pkg = pkg + ".";
-		}
-		return Logger.getLogger("dasein.cloud.terremark.std." + pkg + getLastItem(cls.getName()));
-	}
-
-	static public Logger getWireLogger(Class<?> cls) {
-		return Logger.getLogger("dasein.cloud.terremark.wire." + getLastItem(cls.getPackage().getName()) + "." + getLastItem(cls.getName()));
-	}
-
-	static private String getLastItem(String name) {
-		int idx = name.lastIndexOf('.');
-
-		if( idx < 0 ) {
-			return name;
-		}
-		else if( idx == (name.length()-1) ) {
-			return "";
-		}
-		return name.substring(idx+1);
-	}
-
-	//Required Headers
-	static public final String AUTHORIZATION         = "Authorization";
-	static public final String DATE                  = "Date";
-	static public final String TMRK_AUTHORIZATION    = "x-tmrk-authorization";
-	static public final String TMRK_DATE             = "x-tmrk-date";
-	static public final String TMRK_VERSION          = "x-tmrk-version";
-
-	//Conditional Headers
-	static public final String ACCEPT                = "Accept";
-	static public final String CONTENT_LENGTH        = "Content-Length";
-	static public final String CONTENT_LOCATION      = "Content-Location";
-	static public final String CONTENT_RANGE         = "Content-Range";
-	static public final String CONTENT_TYPE          = "Content-Type";
-	static public final String LOCATION              = "Location";
-	static public final String GUEST_PASSWORD        = "X-Guest-Password";
-	static public final String GUEST_USER            = "X-Guest-User";
-	static public final String RESPONDING_HOST       = "X-Responding-Host";
-	static public final String TMRK_CONTENTHASH      = "x-tmrk-contenthash";
-	static public final String TMRK_TOKEN            = "x-tmrk-token";
-
-	//Response-Only Headers
-	static public final String TMRK_CURRENTUSER      = "x-tmrk-currentuser";
-	static public final String TMRK_DEPRECATED       = "x-tmrk-deprecated";
-
-	// Header Values
-	static public final String VERSION               = "2012-09-01";
-	static public final String ALGORITHM             = "HmacSha512";
-	public final static String RFC1123_PATTERN       = "EEE, dd MMM yyyy HH:mm:ss z";
-	public final static String ISO8601_PATTERN       = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'";
-	public final static String TMRK_URI              = "https://services.enterprisecloud.terremark.com";
-	public final static String URI_PATH              = "/cloudapi/ecloud";
-	public final static String LIVE_SPEC_URI_PATH    = "/cloudapi/spec";
-	public final static String DEFAULT_URI_PATH      = URI_PATH;
-	public final static String JSON                  = "application/json";
-	public final static String XML                   = "application/xml";
-
-	// API Calls
-	public final static String ORGANZIATIONS         = "organizations";
-	public final static String ACTION                = "action";
-	public final static String ADMIN                 = "admin";
-
-	// Common Response Attributes
-	public final static String NAME                  = "name";
-	public final static String HREF                  = "href";
-	public final static String TYPE                  = "type";
-
-	// Task Tags & Status
-	public final static String TASK_TAG              = "Task";
-	public final static String OPERATION_TAG         = "Operation";
-	public final static String STATUS_TAG            = "Status";
-	public final static String ERROR_MESSAGE_TAG     = "ErrorMessage";
-	public final static String TASK_COMPLETE         = "Complete";
-	public final static String TASK_QUEUED           = "Queued";
-	public final static String TASK_RUNNING          = "Running";
-	public final static String TASK_ERROR            = "Error";
-	
-	public final static int TASK_ERROR_COUNT         = 5;
 
 	public Map<String,String> getHeaders(ProviderContext ctx, HttpMethodName methodType, String url, NameValuePair[] queryParamters, String body) {
 		HashMap<String,String> headers = new HashMap<String,String>();
@@ -196,7 +288,6 @@ public class Terremark  extends AbstractCloud {
 		headers.put(ACCEPT, XML);
 		if (body != null && (methodType.equals(HttpMethodName.PUT) || methodType.equals(HttpMethodName.POST) || methodType.equals(HttpMethodName.DELETE))){
 			contentLength = new String("" + body.getBytes().length);
-			headers.put(CONTENT_LENGTH, contentLength);
 		}
 		if (body != null && !body.equals("")){
 			contentType = XML;
@@ -251,54 +342,36 @@ public class Terremark  extends AbstractCloud {
 		return headers;
 	}
 
-	private static String sign(byte[] key, String authString, String algorithm) throws InternalException {
-		try {
-			Mac mac = Mac.getInstance(algorithm);
-
-			mac.init(new SecretKeySpec(key, algorithm));
-			return new String(Base64.encodeBase64(mac.doFinal(authString.getBytes("utf-8"))));
-		} 
-		catch( NoSuchAlgorithmException e ) {
-			logger.error(e);
-			e.printStackTrace();
-			throw new InternalException(e);
-		} 
-		catch( InvalidKeyException e ) {
-			logger.error(e);
-			e.printStackTrace();
-			throw new InternalException(e);
-		} 
-		catch( IllegalStateException e ) {
-			logger.error(e);
-			e.printStackTrace();
-			throw new InternalException(e);
-		} 
-		catch( UnsupportedEncodingException e ) {
-			logger.error(e);
-			e.printStackTrace();
-			throw new InternalException(e);
-		}
+	@Override
+	public TerremarkIdentityServices getIdentityServices() {
+		return new TerremarkIdentityServices(this);
 	}
 
-	private static String getRfcDate() {
-		Date date = new Date();
-		SimpleDateFormat format = new SimpleDateFormat(RFC1123_PATTERN);
-		format.setTimeZone(TimeZone.getTimeZone("GMT"));
-		return format.format(date);
+	@Override
+	public @Nonnull TerremarkNetworkServices getNetworkServices() {
+		return new TerremarkNetworkServices(this);
+	}
+
+	public Organization getOrganization() throws CloudException, InternalException {
+		if( currentOrg == null ) {
+			String url = "/" + ORGANZIATIONS + "/";
+			TerremarkMethod method = new TerremarkMethod(this, HttpMethodName.GET, url, null, null);
+			Document doc = method.invoke();
+			if (doc != null) {
+				currentOrg = toOrg(doc);
+			}
+		}
+		return currentOrg;
 	}
 	
-	public static Date parseIsoDate(String isoDateString) {
-		java.text.DateFormat df = new SimpleDateFormat(ISO8601_PATTERN);
-		df.setTimeZone(TimeZone.getTimeZone("UTC"));
-		Date result = null;
-		try {
-			result = df.parse(isoDateString);
-		} catch (ParseException e) {
-			e.printStackTrace();
-		}
-		return result;
-	}
+	@Override
+	public String getProviderName() {
+        ProviderContext ctx = getContext();
+		String name = (ctx == null ? null : ctx.getProviderName());
 
+		return ((name == null) ? TerremarkProvider.ENTERPRISE_CLOUD.getName() : name);
+	}
+	
 	public String getProxyHost() {
 		return getContext().getCustomProperties().getProperty("proxyHost");
 	}
@@ -312,20 +385,54 @@ public class Terremark  extends AbstractCloud {
 		return -1;
 	}
 
-	private transient volatile Organization currentOrg;
-
-	public Organization getOrganization() throws CloudException, InternalException {
-		if( currentOrg == null ) {
-			String url = "/" + ORGANZIATIONS + "/";
-			TerremarkMethod method = new TerremarkMethod(this, HttpMethodName.GET, url, null, null);
-			Document doc = method.invoke();
-			if (doc != null) {
-				currentOrg = toOrg(doc);
-			}
+	public String getTaskStatus(String taskHref) throws CloudException, InternalException {
+		String status = null;
+		TerremarkMethod method = new TerremarkMethod(this, HttpMethodName.GET, taskHref, null, null);
+		Document doc = method.invoke();
+		if (doc != null) {
+			status = doc.getElementsByTagName(STATUS_TAG).item(0).getTextContent();
 		}
-		return currentOrg;
+		return status;
 	}
 
+	public @Nonnull TerremarkProvider getTerremarkProvider() {
+        if( provider == null ) {
+            provider = TerremarkProvider.valueOf(getProviderName());
+        }
+        return provider;
+    }
+	
+	@Override
+	public @Nullable String testContext() {
+		try {
+			ProviderContext ctx = getContext();
+
+			if( ctx == null ) {
+				System.out.println("context is null");
+				return null;
+			}
+			if (ctx.getRegionId() == null) {
+				Collection<Region> regions = getDataCenterServices().listRegions();
+				if (regions.size() > 0) {
+					ctx.setRegionId(regions.iterator().next().getProviderRegionId());
+				}
+			}
+			
+			if( !getComputeServices().getVirtualMachineSupport().isSubscribed() ) {
+				System.out.println("isSubscribed is false");
+				return null;
+			}
+			return ctx.getAccountNumber();
+		}
+		catch( Throwable t ) {
+			logger.warn("Failed to test Terremark connection context: " + t.getMessage());
+			if( logger.isDebugEnabled() ) {
+				t.printStackTrace();
+			}
+			return null;
+		}
+	}
+	
 	private Organization toOrg(Document doc) throws CloudException {
 		Logger logger = getLogger(Terremark.class);
 		Organization org = new Organization();
@@ -352,38 +459,26 @@ public class Terremark  extends AbstractCloud {
 		return org;
 	}
 
-	public String getTaskStatus(String taskHref) throws CloudException, InternalException {
-		String status = null;
-		TerremarkMethod method = new TerremarkMethod(this, HttpMethodName.GET, taskHref, null, null);
-		Document doc = method.invoke();
-		if (doc != null) {
-			status = doc.getElementsByTagName(STATUS_TAG).item(0).getTextContent();
-		}
-		return status;
-	}
-	
-	public static String getTaskHref(Document doc, String taskName) {
-		String href = null;
-		NodeList taskElements = doc.getElementsByTagName(Terremark.TASK_TAG);
-		for (int i=0; i<taskElements.getLength(); i++) {
-			Node taskElement = taskElements.item(i);
-			NodeList taskChildren = taskElement.getChildNodes();
-			for (int j=0; j<taskChildren.getLength(); j++) {
-				Node taskChild = taskChildren.item(j);
-				if (taskChild.getNodeName().equals(Terremark.OPERATION_TAG)) {
-					if (taskChild.getTextContent().equals(taskName)) { 
-						href = taskElement.getAttributes().getNamedItem(Terremark.HREF).getNodeValue();
-						break;
-					}
-				}
+	public Task toTask(Node node) throws CloudException, InternalException {
+		NodeList childNodes = node.getChildNodes();
+		Task task = new Task();
+
+		task.taskId = hrefToId(node.getAttributes().getNamedItem(Terremark.HREF).getNodeValue());
+
+		for( int i=0; i<childNodes.getLength(); i++ ) {
+			Node child = childNodes.item(i);
+			String name = childNodes.item(i).getNodeName();
+
+			if( name.equals(Terremark.STATUS_TAG) ) {
+				task.status = child.getTextContent();
 			}
-			if (href != null) {
-				break;
+			else if( name.equals(Terremark.ERROR_MESSAGE_TAG) ) {
+				task.errorMessage = child.getTextContent();
 			}
 		}
-		return href;
+		return task;
 	}
-	
+
 	public void waitForTask(String taskHref, long sleepTime, long timeout) throws CloudException, InternalException {
 		logger.debug("enter - waitForTask(): " + taskHref);
 		boolean complete = false;
@@ -438,90 +533,6 @@ public class Terremark  extends AbstractCloud {
 			throw new CloudException("waitForTask(): Get task call failed " + failedCalls + " times. Giving up.");
 		}
 		logger.debug("exit - waitForTask(): " + taskHref);
-	}
-
-	public class Task {
-		public String taskId;
-		public String errorMessage;
-		public String status;
-	}
-
-	public Task toTask(Node node) throws CloudException, InternalException {
-		NodeList childNodes = node.getChildNodes();
-		Task task = new Task();
-
-		task.taskId = hrefToId(node.getAttributes().getNamedItem(Terremark.HREF).getNodeValue());
-
-		for( int i=0; i<childNodes.getLength(); i++ ) {
-			Node child = childNodes.item(i);
-			String name = childNodes.item(i).getNodeName();
-
-			if( name.equals(Terremark.STATUS_TAG) ) {
-				task.status = child.getTextContent();
-			}
-			else if( name.equals(Terremark.ERROR_MESSAGE_TAG) ) {
-				task.errorMessage = child.getTextContent();
-			}
-		}
-		return task;
-	}
-
-	public static String hrefToId(String href) {
-		return href.substring(href.lastIndexOf("/")+1);
-	}
-	
-	/**
-	 * Converts a network or IP address href to the ID format (network_id or netowrk_id/ipv6 or network_id/ip_address or network_id/ipv6/ip_address).
-	 * @param href A network or IP address href
-	 * @return the network or IP address ID in the format network_id or netowrk_id/ipv6 or network_id/ip_address or network_id/ipv6/ip_address
-	 */
-	public static String hrefToNetworkId (String href) {
-		int beginIndex = href.indexOf(TerremarkNetworkSupport.NETWORKS + "/") + TerremarkNetworkSupport.NETWORKS.length() + 1;
-		return href.substring(beginIndex, href.length());
-	}
-
-	public static String getTemplateIdFromHref(String templateHref){
-		String id = null;
-		String templateString = "/" + Template.TEMPLATES + "/";
-		String cpString = "/" + EnvironmentsAndComputePools.COMPUTE_POOLS.toLowerCase() + "/";
-		templateHref = templateHref.toLowerCase();
-		if (templateHref.contains(templateString) && templateHref.contains(cpString)){
-			int startTemplateId = templateHref.indexOf(templateString) + templateString.length();
-			int startCPId = templateHref.indexOf(cpString) + cpString.length();
-			id = templateHref.substring(startTemplateId, templateHref.indexOf(cpString)) + ":" + templateHref.substring(startCPId) + ":" + Template.ImageType.TEMPLATE.name();
-		}
-		return id;
-	}
-
-	@Override
-	public @Nullable String testContext() {
-		try {
-			ProviderContext ctx = getContext();
-
-			if( ctx == null ) {
-				System.out.println("context is null");
-				return null;
-			}
-			if (ctx.getRegionId() == null) {
-				Collection<Region> regions = getDataCenterServices().listRegions();
-				if (regions.size() > 0) {
-					ctx.setRegionId(regions.iterator().next().getProviderRegionId());
-				}
-			}
-			
-			if( !getComputeServices().getVirtualMachineSupport().isSubscribed() ) {
-				System.out.println("isSubscribed is false");
-				return null;
-			}
-			return ctx.getAccountNumber();
-		}
-		catch( Throwable t ) {
-			logger.warn("Failed to test Terremark connection context: " + t.getMessage());
-			if( logger.isDebugEnabled() ) {
-				t.printStackTrace();
-			}
-			return null;
-		}
 	}
 
 }
