@@ -1064,6 +1064,9 @@ public class VMSupport implements VirtualMachineSupport {
 		VirtualMachine vm = null;
 
 		if (imageType.equalsIgnoreCase(Template.ImageType.TEMPLATE.name())) {
+			if (withLaunchOptions.getDataCenterId() == null) {
+				withLaunchOptions.inDataCenter(imageDataCenterId);
+			}
 			if (!imageDataCenterId.equals(withLaunchOptions.getDataCenterId())) {
 				throw new InternalException("The requested data center " + withLaunchOptions.getDataCenterId() + " does not match the available data center for this image: " + imageDataCenterId);
 			}
@@ -2203,7 +2206,9 @@ public class VMSupport implements VirtualMachineSupport {
 							if (taskDetails.item(k).getNodeName().equals("StartTime")) {
 								String createdDateString = taskDetails.item(k).getTextContent();
 								Date createdDate = Terremark.parseIsoDate(createdDateString);
-								created = createdDate.getTime();
+								if (createdDate != null) {
+									created = createdDate.getTime();
+								}
 							}
 						}
 					}
@@ -2212,7 +2217,9 @@ public class VMSupport implements VirtualMachineSupport {
 							if (taskDetails.item(k).getNodeName().equals("StartTime")) {
 								String deployedDateString = taskDetails.item(k).getTextContent();
 								Date deployedDate = Terremark.parseIsoDate(deployedDateString);
-								deployed = deployedDate.getTime();
+								if (deployedDate != null) {
+									deployed = deployedDate.getTime();
+								}
 							}
 						}
 					}
@@ -2221,7 +2228,9 @@ public class VMSupport implements VirtualMachineSupport {
 							if (taskDetails.item(k).getNodeName().equals("StartTime")) {
 								String powerOffDateString = taskDetails.item(k).getTextContent();
 								Date powerOffDate = Terremark.parseIsoDate(powerOffDateString);
-								powerOff = powerOffDate.getTime();
+								if (powerOffDate != null) {
+									powerOff = powerOffDate.getTime();
+								}
 							}
 						}
 					}
@@ -2230,7 +2239,9 @@ public class VMSupport implements VirtualMachineSupport {
 							if (taskDetails.item(k).getNodeName().equals("StartTime")) {
 								String shutdownDateString = taskDetails.item(k).getTextContent();
 								Date shutdownDate = Terremark.parseIsoDate(shutdownDateString);
-								shutdown = shutdownDate.getTime();
+								if (shutdownDate != null) {
+									shutdown = shutdownDate.getTime();
+								}
 							}
 						}
 					}
@@ -2239,7 +2250,9 @@ public class VMSupport implements VirtualMachineSupport {
 							if (taskDetails.item(k).getNodeName().equals("StartTime")) {
 								String deleteDateString = taskDetails.item(k).getTextContent();
 								Date deleteDate = Terremark.parseIsoDate(deleteDateString);
-								terminated = deleteDate.getTime();
+								if (deleteDate != null) {
+									terminated = deleteDate.getTime();
+								}
 							}
 						}
 					}

@@ -88,6 +88,7 @@ public class Terremark  extends AbstractCloud {
 	static public final String ALGORITHM             = "HmacSha512";
 	public final static String RFC1123_PATTERN       = "EEE, dd MMM yyyy HH:mm:ss z";
 	public final static String ISO8601_PATTERN       = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'";
+	public final static String ISO8601_NO_MS_PATTERN = "yyyy-MM-dd'T'HH:mm:ss'Z'";
 	public final static String TMRK_URI              = "https://services.enterprisecloud.terremark.com";
 	public final static String URI_PATH              = "/cloudapi/ecloud";
 	public final static String LIVE_SPEC_URI_PATH    = "/cloudapi/spec";
@@ -211,7 +212,14 @@ public class Terremark  extends AbstractCloud {
 		try {
 			result = df.parse(isoDateString);
 		} catch (ParseException e) {
-			e.printStackTrace();
+			df = new SimpleDateFormat(ISO8601_NO_MS_PATTERN);
+			df.setTimeZone(TimeZone.getTimeZone("UTC"));
+			result = null;
+			try {
+				result = df.parse(isoDateString);
+			} catch (ParseException e2) {
+				e2.printStackTrace();
+			}
 		}
 		return result;
 	}
