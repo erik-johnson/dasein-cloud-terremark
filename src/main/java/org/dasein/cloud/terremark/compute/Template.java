@@ -1321,23 +1321,7 @@ public class Template  implements MachineImageSupport {
 		template.setProviderRegionId(provider.getContext().getRegionId());
 		logger.debug("toMachineImage(): ID = " + template.getProviderMachineImageId() + " Image Region = " + template.getProviderRegionId());
 
-		boolean canPowerOn = true;
-		NodeList customizationElements = templateDoc.getElementsByTagName("Customization");
-		if (customizationElements.getLength() > 0) {
-			customizationElements = templateDoc.getElementsByTagName("Customization").item(0).getChildNodes();
-		}
-		for (int i=0; i<customizationElements.getLength(); i++) {
-			if (customizationElements.item(i).getNodeName().equals("CanPowerOn")) {
-				canPowerOn = customizationElements.item(i).getTextContent().equals("true");
-				break;
-			}
-		}
-		if (canPowerOn) {
-			template.setCurrentState(MachineImageState.ACTIVE);
-		}
-		else {
-			template.setCurrentState(MachineImageState.PENDING);
-		}
+		template.setCurrentState(MachineImageState.ACTIVE);
 		NodeList softwareNodes = templateDoc.getElementsByTagName("Software");
 		String[] software = new String[softwareNodes.getLength()];
 		for (int i=0; i<softwareNodes.getLength();i++){

@@ -67,7 +67,6 @@ import org.dasein.cloud.terremark.network.FirewallRule;
 import org.dasein.cloud.terremark.network.TerremarkIpAddressSupport;
 import org.dasein.cloud.terremark.network.TerremarkNetworkSupport;
 import org.dasein.util.CalendarWrapper;
-import org.dasein.util.uom.storage.Gigabyte;
 import org.dasein.util.uom.storage.Megabyte;
 import org.dasein.util.uom.storage.Storage;
 import org.w3c.dom.Document;
@@ -115,7 +114,7 @@ public class VMSupport implements VirtualMachineSupport {
 
 	public final static String DEFAULT_ROOT_USER       = "ecloud";
 
-	public final static long DEFAULT_SLEEP             = CalendarWrapper.SECOND * 30;
+	public final static long DEFAULT_SLEEP             = CalendarWrapper.SECOND * 20;
 	public final static long DEFAULT_TIMEOUT           = CalendarWrapper.MINUTE * 45;
 
 	static private final Logger logger = Logger.getLogger(VMSupport.class);
@@ -187,17 +186,15 @@ public class VMSupport implements VirtualMachineSupport {
 		// product id format cpu:ram:disk
 		String cpuCount;
 		String ramSize;
-		String rootVolumeSize;
 		String[] productIds = productString.split(":");
-		if (productIds.length == 3) {
+		if (productIds.length == 2) {
 			cpuCount = productIds[0];
 			ramSize = productIds[1];
-			rootVolumeSize = productIds[2];
 		}
 		else {
 			throw new InternalError("Invalid product id string");
 		}
-		int rootVolumeInt = Integer.parseInt(rootVolumeSize);
+
 		String cpuOptions = "1,2,4,8";
 		if (!cpuOptions.contains(cpuCount)) {
 			throw new InternalException("Processor count must be 1, 2, 4, or 8");
@@ -215,8 +212,7 @@ public class VMSupport implements VirtualMachineSupport {
 		Collection<Volume> oldVolumes = provider.getComputeServices().getVolumeSupport().getVirtualMachineDisks(vmId);
 		Iterator<Volume> oldVolumesItr = oldVolumes.iterator();
 		ArrayList<String> diskSizes = new ArrayList<String>();
-
-		int diskIndex = 0;
+		
 		for (VolumeCreateOptions newVolume : newVolumes) {
 			int oldDiskSize = -1;
 			int newDiskSize = newVolume.getVolumeSize().intValue();
@@ -224,12 +220,6 @@ public class VMSupport implements VirtualMachineSupport {
 			if (oldVolumesItr.hasNext()) {
 				oldDisk = oldVolumesItr.next();
 				oldDiskSize = oldDisk.getSizeInGigabytes();
-			}
-
-			if (diskIndex == 0) {
-				if (rootVolumeInt != newDiskSize) {
-					throw new InternalException("The product id root volume size does not match the size specified in the volumes to resize.");
-				}
 			}
 
 			if (newDiskSize > 512) {
@@ -241,7 +231,6 @@ public class VMSupport implements VirtualMachineSupport {
 			else {
 				diskSizes.add(String.valueOf(newDiskSize));
 			}
-			diskIndex++;
 		}
 
 		if (diskSizes.size() > 15) {
@@ -439,7 +428,7 @@ public class VMSupport implements VirtualMachineSupport {
 		/*
 		VirtualMachine vmCopy = null;
 		String url = "/" + VIRTUAL_MACHINES + "/" + EnvironmentsAndComputePools.COMPUTE_POOLS + "/" + intoDcId + "/" + Terremark.ACTION + "/" + COPY_IDENTICAL_VM;
-		
+
 		String body = "";
 
 		DocumentBuilderFactory docFactory = DocumentBuilderFactory.newInstance();
@@ -461,7 +450,7 @@ public class VMSupport implements VirtualMachineSupport {
 		} catch (TransformerException e) {
 			e.printStackTrace();
 		}
-		
+
 		TerremarkMethod method = new TerremarkMethod(provider, HttpMethodName.POST, url, null, body);
 		Document doc = method.invoke();
 		if (doc != null) {
@@ -469,7 +458,7 @@ public class VMSupport implements VirtualMachineSupport {
 			provider.waitForTask(taskHref, DEFAULT_SLEEP, DEFAULT_TIMEOUT);
 		}
 		return vmCopy;
-		*/
+		 */
 		throw new OperationNotSupportedException("In progress");
 	}
 
@@ -1096,11 +1085,11 @@ public class VMSupport implements VirtualMachineSupport {
 			}
 		}
 
-		//product string format cpu:ram:disk
+		//product string format cpu:ram
 		String cpuCount;
 		String ramSize;
 		String[] productIds = productString.split(":");
-		if (productIds.length == 3) {
+		if (productIds.length == 2) {
 			cpuCount = productIds[0];
 			ramSize = productIds[1];
 		}
@@ -1276,6 +1265,7 @@ public class VMSupport implements VirtualMachineSupport {
 			}
 		}
 		else {
+			/*
 			IPVersion version;
 			if (inVlanId.contains("ipv6")) {
 				version = IPVersion.IPV6;
@@ -1284,11 +1274,13 @@ public class VMSupport implements VirtualMachineSupport {
 				version = IPVersion.IPV4;
 			}
 			String availableIpAddressId = provider.getNetworkServices().getIpAddressSupport().requestForVLAN(version, inVlanId);
-			if (availableIpAddressId == null) {
+			 */
+			String availableIpAddress = provider.getNetworkServices().getIpAddressSupport().getUnreservedAvailablePrivateIp(inVlanId);
+			if (availableIpAddress == null) {
 				throw new CloudException("Failed to find an available private ip");
 			}
 			else {
-				String availableIpAddress = provider.getNetworkServices().getIpAddressSupport().getIpAddress(availableIpAddressId).getRawAddress().getIpAddress();
+				//String availableIpAddress = provider.getNetworkServices().getIpAddressSupport().getIpAddress(availableIpAddressId).getRawAddress().getIpAddress();
 				List<String> networkIps = new ArrayList<String>();
 				networkIps.add(availableIpAddress);
 				networkMap.put(inVlanId, networkIps);
@@ -1299,6 +1291,20 @@ public class VMSupport implements VirtualMachineSupport {
 
 		logger.debug("launchFromCatalogItem(): getting virtual machine " + vmId);
 		server = getVirtualMachine(vmId);	
+
+		long waitTime = 0;
+		while (server.getCurrentState().equals(VmState.PENDING) && waitTime < DEFAULT_TIMEOUT) {
+			try {
+				Thread.sleep(DEFAULT_SLEEP);
+				waitTime += DEFAULT_SLEEP;
+				server = getVirtualMachine(vmId);
+				if (server.getCurrentState().equals(VmState.TERMINATED)) {
+					break;
+				}
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+		}
 
 		if (server.getCurrentState().equals(VmState.STOPPED)) {
 			start(vmId);
@@ -1325,11 +1331,11 @@ public class VMSupport implements VirtualMachineSupport {
 			}
 		}
 
-		//product string format cpu:ram:disk
+		//product string format cpu:ram
 		String cpuCount;
 		String ramSize;
 		String[] productIds = productString.split(":");
-		if (productIds.length == 3) {
+		if (productIds.length == 2) {
 			cpuCount = productIds[0];
 			ramSize = productIds[1];
 		}
@@ -1418,7 +1424,7 @@ public class VMSupport implements VirtualMachineSupport {
 				tagsElement.appendChild(tagElement);
 			}
 			rootElement.appendChild(tagsElement);
-			
+
 			String machineImageId = templateId + ":" + dataCenterId + ":" + Template.ImageType.TEMPLATE;
 			template = provider.getComputeServices().getImageSupport().getImage(machineImageId);
 
@@ -1448,12 +1454,12 @@ public class VMSupport implements VirtualMachineSupport {
 					NetworkInterface nic = new NetworkInterface();
 					RawAddress[] addresses = null;
 					RawAddress rawAddress = new RawAddress(availableIpAddress);
-					
+
 
 					if (rawAddress.getVersion().equals(IPVersion.IPV6)) {
 						addresses = new RawAddress[2];
 						addresses[0] = rawAddress;
-						
+
 						String ipV4Vlan = inVlanId.replace("/ipv6", "");
 						String availableIpAddressV4 = provider.getNetworkServices().getIpAddressSupport().getUnreservedAvailablePrivateIp(ipV4Vlan);
 						if (availableIpAddress != null) {
@@ -1465,7 +1471,7 @@ public class VMSupport implements VirtualMachineSupport {
 						addresses = new RawAddress[1];
 						addresses[0] = rawAddress;
 					}
-					
+
 					nic.setIpAddresses(addresses);
 					nic.setProviderVlanId(inVlanId);
 					nicsToAssign.add(nic);
@@ -1761,16 +1767,13 @@ public class VMSupport implements VirtualMachineSupport {
 
 			for( int cpu : new int[] { 1, 2, 4, 8 } ) {
 				for( int ram : new int[] { 512, 1024, 2048, 4096, 8192, 16384, 32768 } ) {
-					for (int disk : new int[] { 1, 10, 30, 50, 100, 256, 512 } ) {
-						VirtualMachineProduct product = new VirtualMachineProduct();
-						product.setProviderProductId(cpu + ":" + ram + ":" + disk);
-						product.setName(cpu + " CPU, " + ram + "MB RAM, " + disk + "GB Disk");
-						product.setDescription(cpu + " CPU, " + ram + "MB RAM, " + disk + "GB Disk");
-						product.setCpuCount(cpu);
-						product.setRootVolumeSize(new Storage<Gigabyte>(disk, Storage.GIGABYTE));
-						product.setRamSize(new Storage<Megabyte>(ram, Storage.MEGABYTE));
-						sizes.add(product);
-					}
+					VirtualMachineProduct product = new VirtualMachineProduct();
+					product.setProviderProductId(cpu + ":" + ram);
+					product.setName(cpu + " CPU, " + ram + "MB RAM");
+					product.setDescription(cpu + " CPU, " + ram + "MB RAM");
+					product.setCpuCount(cpu);
+					product.setRamSize(new Storage<Megabyte>(ram, Storage.MEGABYTE));
+					sizes.add(product);
 				}
 			}
 			products = Collections.unmodifiableList(sizes);
@@ -2308,28 +2311,30 @@ public class VMSupport implements VirtualMachineSupport {
 							mbRam = memValue * 1024;
 						}
 					}
-					else if (hcNode.getNodeName().equalsIgnoreCase("Disks")){
+/*					else if (hcNode.getNodeName().equalsIgnoreCase("Disks")){
 						NodeList diskNodes = hcNode.getChildNodes();
-						NodeList diskProperties = diskNodes.item(0).getChildNodes();
-						for (int l=0; l < diskProperties.getLength(); l++){
-							if (diskProperties.item(l).getNodeName().equalsIgnoreCase("Size")){
-								String diskUnit = diskProperties.item(l).getFirstChild().getTextContent();
-								String diskSize = diskProperties.item(l).getFirstChild().getNextSibling().getTextContent();
-								int gbDisk = 0;
-								if (diskUnit.equalsIgnoreCase("GB")){ // API Doc says disks use GB
-									gbDisk = Integer.parseInt(diskSize);
+						if (diskNodes.getLength() > 0) {
+							NodeList diskProperties = diskNodes.item(0).getChildNodes();
+							for (int l=0; l < diskProperties.getLength(); l++){
+								if (diskProperties.item(l).getNodeName().equalsIgnoreCase("Size")){
+									String diskUnit = diskProperties.item(l).getFirstChild().getTextContent();
+									String diskSize = diskProperties.item(l).getFirstChild().getNextSibling().getTextContent();
+									int gbDisk = 0;
+									if (diskUnit.equalsIgnoreCase("GB")){ // API Doc says disks use GB
+										gbDisk = Integer.parseInt(diskSize);
+									}
+									else if (diskUnit.equalsIgnoreCase("TB")){
+										gbDisk = (Integer.parseInt(diskSize) * 1024);
+									}
+									else if (diskUnit.equalsIgnoreCase("MB")){
+										gbDisk = (Integer.parseInt(diskSize) / 1024);
+									}
+									rootDiskSize = String.valueOf(gbDisk);
+									break;
 								}
-								else if (diskUnit.equalsIgnoreCase("TB")){
-									gbDisk = (Integer.parseInt(diskSize) * 1024);
-								}
-								else if (diskUnit.equalsIgnoreCase("MB")){
-									gbDisk = (Integer.parseInt(diskSize) / 1024);
-								}
-								rootDiskSize = String.valueOf(gbDisk);
-								break;
 							}
 						}
-					}
+					} */
 					else if (hcNode.getNodeName().equalsIgnoreCase("Nics")){
 						NodeList nicNodes = hcNode.getChildNodes();
 						vm.setTag("nic-count", String.valueOf(nicNodes.getLength()));
@@ -2357,7 +2362,7 @@ public class VMSupport implements VirtualMachineSupport {
 						}
 					}
 				}
-				String str = processorCount + ":" + mbRam + ":" + rootDiskSize;
+				String str = processorCount + ":" + mbRam;
 				vm.setProductId(str);
 				logger.debug("toVirtualMachine(): ID = " + vm.getProviderVirtualMachineId() + " Product = " + vm.getProductId());
 			}
@@ -2375,11 +2380,10 @@ public class VMSupport implements VirtualMachineSupport {
 									NamedNodeMap networkAttrs = networkNode.getAttributes();
 									String networkType = networkAttrs.getNamedItem(Terremark.TYPE).getNodeValue();
 									if (networkType.equals(TerremarkNetworkSupport.NETWORK_TYPE) || networkType.equals(TerremarkNetworkSupport.NETWORK_IPV6_TYPE)) {
-										String networkId = Terremark.hrefToNetworkId(networkAttrs.getNamedItem(Terremark.HREF).getNodeValue());
 										NodeList ipAddressNodes = networkNode.getFirstChild().getChildNodes();
 										for (int n=0; n < ipAddressNodes.getLength(); n++){
 											String address = ipAddressNodes.item(n).getTextContent();
-											addresses.add(networkId + "/" + address);
+											addresses.add(address);
 										}
 									}
 								}
@@ -2395,15 +2399,7 @@ public class VMSupport implements VirtualMachineSupport {
 
 					for( String addr : addresses ) {
 						if( o == 0 ) {
-							String[]addrIds = addr.split("/");
-							String dnsAddr = "";
-							if (addrIds.length == 2) { //IPV4
-								dnsAddr = addr.split("/")[1];
-							}
-							else if (addrIds.length == 3) { //IPV6
-								dnsAddr = addr.split("/")[2];
-							}
-							vm.setPrivateDnsAddress(dnsAddr); //Set to the address part of the first IP address id
+							vm.setPrivateDnsAddress(addr); //Set to the first IP address id
 							logger.debug("toVirtualMachine(): ID = " + vm.getProviderVirtualMachineId() + " PrivateDnsAddress = " + vm.getPrivateDnsAddress());
 						}
 						privateIps[o++] = new RawAddress(addr);
@@ -2537,7 +2533,7 @@ public class VMSupport implements VirtualMachineSupport {
 			Tag tag = tags[i];
 			tagsToAdd.put(tag.getKey(), tag.getValue());
 		}
-		
+
 		String url = VIRTUAL_MACHINES + "/" + vmId;
 		String body = "";
 
@@ -2550,7 +2546,7 @@ public class VMSupport implements VirtualMachineSupport {
 			Element rootElement = doc.createElement("VirtualMachine");
 			rootElement.setAttribute(Terremark.NAME, vm.getName());
 			doc.appendChild(rootElement);
-			
+
 			Element tagsElement = doc.createElement("Tags");
 
 			for(String key: tagsToAdd.keySet()){
