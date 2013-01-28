@@ -2022,17 +2022,13 @@ public class VMSupport implements VirtualMachineSupport {
 	 */
 	@Override
 	public void stop(String vmId, boolean force) throws InternalException, CloudException {
-		try {
-			shutdown(vmId);
-		}
-		catch(Exception e){
-			logger.debug("stop(): shutdown failed");
-		}
-		VmState status = getVirtualMachine(vmId).getCurrentState();
-		if (!status.equals(VmState.STOPPED) && force){
+		if (force) {
 			powerOff(vmId);
 		}
-		status = getVirtualMachine(vmId).getCurrentState();
+		else {
+			shutdown(vmId);
+		}
+		VmState status = getVirtualMachine(vmId).getCurrentState();
 		if (!status.equals(VmState.STOPPED)){
 			throw new CloudException("Failed to stop server");
 		}
