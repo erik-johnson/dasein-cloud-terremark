@@ -921,8 +921,8 @@ public class Template  implements MachineImageSupport {
 	 */
 	@Override
 	public MachineImage registerImageBundle(ImageCreateOptions options) throws CloudException, InternalException {
-		throw new OperationNotSupportedException("Terremark does not support registering image from object store bundles");
-		//TODO: Add support when ImageCreateOptions can have multiple input streams.
+		throw new OperationNotSupportedException("Not yet supported.");
+		//TODO: Implement. The implementation should expect a zip file with an OVF and a VMDK file and unzip it and load both parts.
 	}
 
 	/**
