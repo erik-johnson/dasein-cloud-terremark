@@ -23,6 +23,7 @@ import org.dasein.cloud.OperationNotSupportedException;
 import org.dasein.cloud.ProviderContext;
 import org.dasein.cloud.Requirement;
 import org.dasein.cloud.ResourceStatus;
+import org.dasein.cloud.compute.AbstractVolumeSupport;
 import org.dasein.cloud.compute.Platform;
 import org.dasein.cloud.compute.VmState;
 import org.dasein.cloud.compute.Volume;
@@ -47,7 +48,7 @@ import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
-public class DiskSupport implements VolumeSupport {
+public class DiskSupport extends AbstractVolumeSupport {
 
 	// API Calls
 	public final static String DETACHED_DISKS              = "detachedDisks";
@@ -75,6 +76,7 @@ public class DiskSupport implements VolumeSupport {
 	private Terremark provider;
 
 	DiskSupport(Terremark provider) {
+        super(provider);
 		this.provider = provider;
 	}
 
@@ -143,15 +145,6 @@ public class DiskSupport implements VolumeSupport {
 
 		}
 	}
-
-    /**
-     * Creating detached volumes is not supported in Terremark.
-     * @throws OperationNotSupportedException this method is not supported in Terremark
-     */
-	@Override
-	public String create(String fromSnapshot, int sizeInGb, String inZone) throws InternalException, CloudException {
-		throw new OperationNotSupportedException("Creating volumes is not supported");
-	}
 	
     /**
      * Creating detached volumes is not supported in Terremark.
@@ -161,17 +154,6 @@ public class DiskSupport implements VolumeSupport {
     public @Nonnull String createVolume(@Nonnull VolumeCreateOptions options) throws InternalException, CloudException {
     	throw new OperationNotSupportedException("Creating volumes is not supported");
     }
-
-    /**
-     * Detaches the specified volume from any virtual machines to which it might be attached.
-     * @param volumeId the unique ID of the volume to be detached
-     * @throws InternalException an error occurred in the Dasein Cloud implementation while performing the detachment
-     * @throws CloudException the detachment failed with the cloud provider
-     */
-	@Override
-	public void detach(String volumeId) throws InternalException, CloudException {
-		detach(volumeId, false);
-	}
 	
     /**
      * Detaches the specified volume from any virtual machines to which it might be attached with the option to
