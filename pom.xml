@@ -1,6 +1,4 @@
-<project
-	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd"
-	xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<!-- Copyright (C) 2008-2012 enStratus Networks Inc (http://www.enstratus.com) 
 		==================================================================== Licensed 
 		under the Apache License, Version 2.0 (the "License"); you may not use this 
@@ -13,7 +11,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>org.dasein</groupId>
 	<artifactId>dasein-cloud-terremark</artifactId>
-	<version>2013.02-SNAPSHOT</version>
+	<version>2013.02</version>
 	<packaging>jar</packaging>
 
 	<name>dasein-cloud-terremark</name>
