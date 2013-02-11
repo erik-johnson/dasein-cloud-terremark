@@ -23,9 +23,12 @@ import org.dasein.cloud.InternalException;
 import org.dasein.cloud.OperationNotSupportedException;
 import org.dasein.cloud.Requirement;
 import org.dasein.cloud.ResourceStatus;
+import org.dasein.cloud.Tag;
 import org.dasein.cloud.identity.ServiceAction;
+import org.dasein.cloud.network.AbstractFirewallSupport;
 import org.dasein.cloud.network.Direction;
 import org.dasein.cloud.network.Firewall;
+import org.dasein.cloud.network.FirewallCreateOptions;
 import org.dasein.cloud.network.FirewallSupport;
 import org.dasein.cloud.network.IpAddress;
 import org.dasein.cloud.network.Permission;
@@ -43,7 +46,7 @@ import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
-public class FirewallRule implements FirewallSupport {
+public class FirewallRule extends AbstractFirewallSupport {
 
 	private Terremark provider = null;
 
@@ -63,6 +66,7 @@ public class FirewallRule implements FirewallSupport {
 	public final static long DEFAULT_TIMEOUT            = CalendarWrapper.MINUTE * 20;
 
 	FirewallRule(@Nonnull Terremark provider) {
+        super(provider);
 		this.provider = provider;
 	}
 
@@ -330,126 +334,12 @@ public class FirewallRule implements FirewallSupport {
 		return providerRuleId;
 	}
 
-	/**
-	 * Provides positive authorization for the specified firewall rule to global destinations. Any call to this method should
-	 * result in an override of any previous revocations.
-	 * @param firewallId the unique, cloud-specific ID for the firewall being targeted by the new rule
-	 * @param direction the direction of the traffic governing the rule
-	 * @param permission ALLOW or DENY
-	 * @param source the source CIDR (http://en.wikipedia.org/wiki/CIDR) or provider firewall ID for the CIDR or other firewall being set
-	 * @param protocol the protocol (tcp/udp/icmp) supported by this rule
-	 * @param beginPort the beginning of the port range to be allowed, inclusive
-	 * @param endPort the end of the port range to be allowed, inclusive
-	 * @return the provider ID of the new rule
-	 * @throws CloudException an error occurred with the cloud provider establishing the rule
-	 * @throws InternalException an error occurred locally trying to establish the rule
-	 * @throws OperationNotSupportedException the specified direction or permission are not supported or global destinations are not supported
-	 * @deprecated Use {@link #authorize(String, Direction, Permission, RuleTarget, Protocol, RuleTarget, int, int, int)}
-	 */
-	@Deprecated
-	@Override
-	public String authorize(String firewallId, Direction direction, Permission permission, String source, Protocol protocol, int beginPort, int endPort) throws CloudException, InternalException {
-		if (permission.equals(Permission.ALLOW) || direction.equals(Direction.EGRESS)) {
-			throw new OperationNotSupportedException("CIDR source with Allow permission or Egress direction not supported. Use authorize(String, Direction, Permission, RuleTarget, Protocol, RuleTarget, int, int, int)");
-		}
-		RuleTarget sourceTarget = RuleTarget.getCIDR(source);
-		RuleTarget destinationTarget = RuleTarget.getGlobal(provider.getContext().getRegionId());
-		return authorize(firewallId, direction, permission, sourceTarget, protocol, destinationTarget, beginPort, endPort, -1);
-	}
+    @Override
+    public void delete(@Nonnull String firewallId) throws InternalException, CloudException {
+        throw new OperationNotSupportedException("Firewall creation/deletion is not currently implemented for " + getProvider().getCloudName());
+    }
 
-	/**
-	 * Provides positive authorization for the specified firewall rule. Any call to this method should
-	 * result in an override of any previous revocations.
-	 * @param firewallId the unique, cloud-specific ID for the firewall being targeted by the new rule
-	 * @param direction the direction of the traffic governing the rule
-	 * @param permission ALLOW or DENY
-	 * @param source the source CIDR (http://en.wikipedia.org/wiki/CIDR) or provider firewall ID for the CIDR or other firewall being set
-	 * @param protocol the protocol (tcp/udp/icmp) supported by this rule
-	 * @param target the target to specify for this rule
-	 * @param beginPort the beginning of the port range to be allowed, inclusive
-	 * @param endPort the end of the port range to be allowed, inclusive
-	 * @return the provider ID of the new rule
-	 * @throws CloudException an error occurred with the cloud provider establishing the rule
-	 * @throws InternalException an error occurred locally trying to establish the rule
-	 * @throws OperationNotSupportedException the specified direction, target, or permission are not supported
-	 * @deprecated Use {@link #authorize(String, Direction, Permission, RuleTarget, Protocol, RuleTarget, int, int, int)}
-	 */
-	@Deprecated
-	@Override
-	public String authorize(String firewallId, Direction direction, Permission permission, String source, Protocol protocol, RuleTarget target, int beginPort, int endPort) throws CloudException, InternalException {
-		if (permission.equals(Permission.ALLOW)) {
-			throw new OperationNotSupportedException("CIDR source with Allow permission not supported. Use authorize(String, Direction, Permission, RuleTarget, Protocol, RuleTarget, int, int, int)");
-		}
-		RuleTarget sourceTarget = RuleTarget.getCIDR(source);
-		return authorize(firewallId, direction, permission, sourceTarget, protocol, target, beginPort, endPort, -1);
-	}
-
-	/**
-	 * Provides positive authorization to all destinations behind this firewall for the specified rule.
-	 * Any call to this method should result in an override of any previous revocations.
-	 * @param firewallId the unique, cloud-specific ID for the firewall being targeted by the new rule
-	 * @param direction the direction of the traffic governing the rule                  
-	 * @param source the source CIDR (http://en.wikipedia.org/wiki/CIDR) or provider firewall ID for the CIDR or other firewall being set
-	 * @param protocol the protocol (tcp/udp/icmp) supported by this rule
-	 * @param beginPort the beginning of the port range to be allowed, inclusive
-	 * @param endPort the end of the port range to be allowed, inclusive
-	 * @return the provider ID of the new rule
-	 * @throws CloudException an error occurred with the cloud provider establishing the rule
-	 * @throws InternalException an error occurred locally trying to establish the rule
-	 * @throws OperationNotSupportedException the specified direction, ALLOW rules, or global destinations are not supported
-	 * @deprecated Use {@link #authorize(String, Direction, Permission, RuleTarget, Protocol, RuleTarget, int, int, int)}
-	 */
-	@Deprecated
-	@Override
-	public String authorize(String firewallId, Direction direction, String source, Protocol protocol, int beginPort, int endPort) throws CloudException, InternalException {
-		throw new OperationNotSupportedException("CIDR source with Allow permission not supported. Use authorize(String, Direction, Permission, RuleTarget, Protocol, RuleTarget, int, int, int)");
-	}
-
-
-	/**
-	 * Provides positive authorization for the specified firewall rule. Any call to this method should
-	 * result in an override of any previous revocations.
-	 * @param firewallId the unique, cloud-specific ID for the firewall being targeted by the new rule
-	 * @param cidr the source CIDR (http://en.wikipedia.org/wiki/CIDR) for the allowed traffic
-	 * @param protocol the protocol (tcp/udp/icmp) supported by this rule
-	 * @param beginPort the beginning of the port range to be allowed, inclusive
-	 * @param endPort the end of the port range to be allowed, inclusive
-	 * @return the provider ID of the new rule
-	 * @throws CloudException an error occurred with the cloud provider establishing the rule
-	 * @throws InternalException an error occurred locally trying to establish the rule
-	 * @deprecated Use {@link #authorize(String, Direction, Permission, RuleTarget, Protocol, RuleTarget, int, int, int)}
-	 */
-	@Deprecated
-	@Override
-	public @Nonnull String authorize(@Nonnull String firewallId, @Nonnull String cidr, @Nonnull Protocol protocol, int beginPort, int endPort) throws CloudException, InternalException {
-		throw new OperationNotSupportedException("CIDR source with Allow permission not supported. Use authorize(String, Direction, Permission, RuleTarget, Protocol, RuleTarget, int, int, int)");
-	}
-
-	/**
-	 * Not supported in Terremark.
-	 */
-	@Override
-	public @Nonnull String create(@Nonnull String name, @Nonnull String description) throws InternalException, CloudException {
-		throw new OperationNotSupportedException("Not supported.");
-	}
-
-	/**
-	 * Not supported in Terremark.
-	 */
-	@Override
-	public @Nonnull String createInVLAN(@Nonnull String name, @Nonnull String description, @Nonnull String providerVlanId) throws InternalException, CloudException {
-		throw new OperationNotSupportedException("Not supported");
-	}
-
-	/**
-	 * Not supported in Terremark.
-	 */
-	@Override
-	public void delete(@Nonnull String firewallId) throws InternalException, CloudException {
-
-	}
-
-	/**
+    /**
 	 * Provides negative authorization for the specified firewall rule. Any call to this method should
 	 * result in an override of any previous revocations.
 	 * @param firewallId the unique, cloud-specific ID for the firewall being targeted by the new rule
@@ -670,7 +560,7 @@ public class FirewallRule implements FirewallSupport {
 	 */
 	@Override
 	public boolean isZeroPrecedenceHighest() throws InternalException, CloudException {
-		throw new OperationNotSupportedException("Firewall rule precedence is not supported.");
+		return true;
 	}
 
 	/**
@@ -771,10 +661,6 @@ public class FirewallRule implements FirewallSupport {
 		return sourceTypes;
 	}
 
-	@Override
-	public String[] mapServiceAction(ServiceAction action) {
-		return new String[0];
-	}
 
 	/**
 	 * Revokes the uniquely identified firewall rule.
@@ -796,80 +682,6 @@ public class FirewallRule implements FirewallSupport {
 	}
 
 	/**
-	 * Revokes the specified access from the named firewall.
-	 * @param firewallId the firewall from which the rule is being revoked
-	 * @param direction the direction of the traffic being revoked
-	 * @param permission ALLOW or DENY
-	 * @param source the source CIDR (http://en.wikipedia.org/wiki/CIDR) or provider firewall ID for the CIDR or other firewall being set
-	 * @param protocol the protocol (tcp/icmp/udp) of the rule being removed
-	 * @param beginPort the initial port of the rule being removed
-	 * @param endPort the end port of the rule being removed
-	 * @throws InternalException an error occurred locally independent of any events in the cloud
-	 * @throws CloudException an error occurred with the cloud provider while performing the operation
-	 * @deprecated Use {@link #revoke(String)}
-	 */
-	@Deprecated
-	@Override
-	public void revoke(String firewallId, Direction direction, Permission permission, String source, Protocol protocol, int beginPort, int endPort) throws CloudException, InternalException {
-		throw new OperationNotSupportedException("Not supported. Use revoke(String providerFirewallRuleId) instead.");
-	}
-
-	/**
-	 * Revokes the specified access from the named firewall.
-	 * @param firewallId the firewall from which the rule is being revoked
-	 * @param direction the direction of the traffic being revoked
-	 * @param permission ALLOW or DENY
-	 * @param source the source CIDR (http://en.wikipedia.org/wiki/CIDR) or provider firewall ID for the CIDR or other firewall being set
-	 * @param protocol the protocol (tcp/icmp/udp) of the rule being removed
-	 * @param target the target for traffic matching this rule
-	 * @param beginPort the initial port of the rule being removed
-	 * @param endPort the end port of the rule being removed
-	 * @throws InternalException an error occurred locally independent of any events in the cloud
-	 * @throws CloudException an error occurred with the cloud provider while performing the operation
-	 * @deprecated Use {@link #revoke(String)}
-	 */
-	@Deprecated
-	@Override
-	public void revoke(String firewallId, Direction direction, Permission permission, String source, Protocol protocol, RuleTarget target, int beginPort, int endPort) throws CloudException, InternalException {
-		throw new OperationNotSupportedException("Not supported. Use revoke(String providerFirewallRuleId) instead.");
-	}
-
-	/**
-	 * Revokes the specified ALLOW access from the named firewall.
-	 * @param firewallId the firewall from which the rule is being revoked
-	 * @param direction the direction of the traffic being revoked                  
-	 * @param source the source CIDR (http://en.wikipedia.org/wiki/CIDR) or provider firewall ID for the CIDR or other firewall being set
-	 * @param protocol the protocol (tcp/icmp/udp) of the rule being removed
-	 * @param beginPort the initial port of the rule being removed
-	 * @param endPort the end port of the rule being removed
-	 * @throws InternalException an error occurred locally independent of any events in the cloud
-	 * @throws CloudException an error occurred with the cloud provider while performing the operation
-	 * @deprecated Use {@link #revoke(String)}
-	 */
-	@Deprecated
-	@Override
-	public void revoke(String firewallId, Direction direction, String source, Protocol protocol, int beginPort, int endPort) throws CloudException, InternalException {
-		throw new OperationNotSupportedException("Not supported. Use revoke(String providerFirewallRuleId) instead.");
-	}
-
-	/**
-	 * Revokes the specified INGRESS + ALLOW access from the named firewall.
-	 * @param firewallId the firewall from which the rule is being revoked
-	 * @param source the source CIDR (http://en.wikipedia.org/wiki/CIDR) or provider firewall ID for the CIDR or other firewall being set
-	 * @param protocol the protocol (tcp/icmp/udp) of the rule being removed
-	 * @param beginPort the initial port of the rule being removed
-	 * @param endPort the end port of the rule being removed
-	 * @throws InternalException an error occurred locally independent of any events in the cloud
-	 * @throws CloudException an error occurred with the cloud provider while performing the operation
-	 * @deprecated Use {@link #revoke(String)}
-	 */
-	@Deprecated
-	@Override
-	public void revoke(@Nonnull String firewallId, @Nonnull String source, @Nonnull Protocol protocol, int beginPort, int endPort) throws CloudException, InternalException {
-		throw new OperationNotSupportedException("Not supported. Use revoke(String providerFirewallRuleId) instead.");
-	}
-
-	/**
 	 * Indicates whether or not the sources you specify in your rules may be other firewalls (security group behavior).
 	 * @return true if the sources may be other firewalls
 	 * @throws CloudException an error occurred with the cloud provider while checking for support
@@ -880,7 +692,7 @@ public class FirewallRule implements FirewallSupport {
 		return false;
 	}
 
-	/**
+    /**
 	 * Indicates whether firewalls of the specified type (VLAN or flat network) support rules over the direction specified.
 	 * @param direction the direction of the traffic
 	 * @param permission the type of permission
@@ -905,7 +717,12 @@ public class FirewallRule implements FirewallSupport {
 		return support;
 	}
 
-	private org.dasein.cloud.network.FirewallRule toFirewallRule(Node firewallAcl) throws InternalException, CloudException {
+    @Override
+    public boolean supportsFirewallCreation(boolean inVlan) throws CloudException, InternalException {
+        return false;  //To change body of implemented methods use File | Settings | File Templates.
+    }
+
+    private org.dasein.cloud.network.FirewallRule toFirewallRule(Node firewallAcl) throws InternalException, CloudException {
 		org.dasein.cloud.network.FirewallRule rule = null;
 		String firewallRuleId = null;
 		String providerFirewallId = provider.getContext().getRegionId();
