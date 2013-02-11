@@ -13,12 +13,14 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>org.dasein</groupId>
 	<artifactId>dasein-cloud-terremark</artifactId>
-	<version>2013.02</version>
+	<version>2013.02-SNAPSHOT</version>
 	<packaging>jar</packaging>
+
 	<name>dasein-cloud-terremark</name>
-	<description>    Implementation of the Dasein Cloud API for Terremark Enterprise Cloud and Terremark vCloud Express.  </description>
+	<description>Implementation of the Dasein Cloud API for Terremark Enterprise Cloud</description>
 	<inceptionYear>2012</inceptionYear>
-	<url>http://github.com/erik-johnson/dasein-cloud-terremark</url>
+	<url>http://github.com/greese/dasein-cloud-terremark</url>
+
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 	</properties>
@@ -33,15 +35,17 @@
 		<url>http://www.enstratus.com</url>
 	</organization>
 	<scm>
-		<connection>scm:git:git://github.com/erik-johnson/dasein-cloud-terremark.git</connection>
-		<developerConnection>scm:git:ssh://git@github.com/erik-johnson/dasein-cloud-terremark.git</developerConnection>
-		<url>http://github.com/erik-johnson/dasein-cloud-terremark</url>
+		<connection>scm:git:git://github.com/greese/dasein-cloud-terremark.git</connection>
+		<developerConnection>scm:git:ssh://git@github.com/greese/dasein-cloud-terremark.git</developerConnection>
+		<url>http://github.com/greese/dasein-cloud-terremark</url>
 	</scm>
+
 	<parent>
 		<groupId>org.sonatype.oss</groupId>
 		<artifactId>oss-parent</artifactId>
 		<version>5</version>
 	</parent>
+
 	<dependencies>
 		<!-- Compile -->
 		<dependency>
@@ -82,6 +86,7 @@
 			<version>20090211</version>
 			<scope>compile</scope>
 		</dependency>
+
 		<!-- Test -->
 		<dependency>
 			<groupId>org.dasein</groupId>
@@ -243,7 +248,7 @@
 						</property>
 					</systemProperties>
 					<includes>
-						<include>**/TerremarkTestSuite.java</include>
+						<!-- <include>**/TerremarkTestSuite.java</include> -->
 					</includes>
 				</configuration>
 			</plugin>
