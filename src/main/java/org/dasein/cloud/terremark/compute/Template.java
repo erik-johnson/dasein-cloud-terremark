@@ -804,92 +804,20 @@ public class Template extends AbstractImageSupport {
 		return results;
 	}
 
-    /*
 	@Override
-	public @Nonnull Iterable<MachineImage> searchMachineImages(@Nullable String keyword, @Nullable Platform platform, @Nullable Architecture architecture) throws CloudException, InternalException {
-		Collection<MachineImage> imageResults = new ArrayList<MachineImage>();
-		Iterable<MachineImage> privateImages = searchImages(null, keyword, platform, architecture, ImageClass.MACHINE);
-		Iterator<MachineImage> imageItr = privateImages.iterator();
-		while (imageItr.hasNext()) {
-			imageResults.add(imageItr.next());
-		}
-		Iterable<MachineImage> publicImages = searchPublicImages(keyword, platform, architecture, ImageClass.MACHINE);
-		imageItr = publicImages.iterator();
-		while (imageItr.hasNext()) {
-			imageResults.add(imageItr.next());
-		}
-		return imageResults;
-	}
-    */
-
-	/**
-	 * Searches the public machine image library. It will match against the specified parameters. Any null parameter does
-	 * not constrain the search.
-	 * @param keyword a keyword on which to search
-	 * @param platform the platform to match
-	 * @param architecture the architecture to match
-	 * @param imageClasses the image classes to search for (null or empty list for all)
-	 * @return all matching machine images
-	 * @throws CloudException an error occurred with the cloud provider
-	 * @throws InternalException a local error occurred in the Dasein Cloud implementation
-	 */
-	@Override
-	public Iterable<MachineImage> searchPublicImages(String keyword, Platform platform, Architecture architecture, ImageClass... imageClasses) throws CloudException, InternalException {
-		logger.trace("enter - searchPublicImages(" + keyword + ", " + platform + ", " + architecture + ")");
-
-		boolean machineClass = false;
-
-		if (imageClasses == null || imageClasses.length == 0) {
-			machineClass = true;
-		}
-		else {
-			for (ImageClass imageClass : imageClasses) {
-				if (imageClass.equals(ImageClass.MACHINE)) {
-					machineClass = true;
-					break;
-				}
-			}
-		}
+	public @Nonnull Iterable<MachineImage> searchPublicImages(@Nonnull ImageFilterOptions options) throws CloudException, InternalException {
+		logger.trace("enter - searchPublicImages(" + options + ")");
 
 		ArrayList<MachineImage> results = new ArrayList<MachineImage>();
 		
-		if (machineClass) {
-			logger.debug("searchMachineImages(): Calling list templates");
-			Iterable<MachineImage> images = listTemplates();
-			for( MachineImage image : images ) {
-				if( keyword != null ) {
-					if( !image.getProviderMachineImageId().contains(keyword) && !image.getName().contains(keyword) && !image.getDescription().contains(keyword) ) {
-						continue;
-					}
-				}
-				if( platform != null ) {
-					Platform p = image.getPlatform();
-
-					if( !platform.equals(p) ) {
-						if( platform.isWindows() ) {
-							if( !p.isWindows() ) {
-								continue;
-							}
-						}
-						else if( platform.equals(Platform.UNIX) ){
-							if( !p.isUnix() ) {
-								continue;
-							}
-						}
-						else {
-							continue;
-						}
-					}
-				}
-				if (architecture != null) {
-					if (architecture != image.getArchitecture()) {
-						continue;
-					}
-				}
-				logger.debug("searchMachineImages(): Adding image " + image + " to results");
-				results.add(image);
-			}
-		}
+        logger.debug("searchMachineImages(): Calling list templates");
+        Iterable<MachineImage> images = listTemplates();
+        for( MachineImage image : images ) {
+            if( options.matches(image) ) {
+                logger.debug("searchMachineImages(): Adding image " + image + " to results");
+                results.add(image);
+            }
+        }
 		logger.trace("exit - searchPublicImages()");
 		return results;
 	}
