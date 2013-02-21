@@ -1,6 +1,4 @@
-<project
-	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd"
-	xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<!-- Copyright (C) 2008-2012 enStratus Networks Inc (http://www.enstratus.com) 
 		==================================================================== Licensed 
 		under the Apache License, Version 2.0 (the "License"); you may not use this 
@@ -13,12 +11,14 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>org.dasein</groupId>
 	<artifactId>dasein-cloud-terremark</artifactId>
-	<version>2013.02</version>
+	<version>2013.04-SNAPSHOT</version>
 	<packaging>jar</packaging>
+
 	<name>dasein-cloud-terremark</name>
-	<description>    Implementation of the Dasein Cloud API for Terremark Enterprise Cloud and Terremark vCloud Express.  </description>
+	<description>Implementation of the Dasein Cloud API for Terremark Enterprise Cloud</description>
 	<inceptionYear>2012</inceptionYear>
-	<url>http://github.com/erik-johnson/dasein-cloud-terremark</url>
+	<url>http://github.com/greese/dasein-cloud-terremark</url>
+
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 	</properties>
@@ -33,28 +33,30 @@
 		<url>http://www.enstratus.com</url>
 	</organization>
 	<scm>
-		<connection>scm:git:git://github.com/erik-johnson/dasein-cloud-terremark.git</connection>
-		<developerConnection>scm:git:ssh://git@github.com/erik-johnson/dasein-cloud-terremark.git</developerConnection>
-		<url>http://github.com/erik-johnson/dasein-cloud-terremark</url>
+		<connection>scm:git:git://github.com/greese/dasein-cloud-terremark.git</connection>
+		<developerConnection>scm:git:ssh://git@github.com/greese/dasein-cloud-terremark.git</developerConnection>
+		<url>http://github.com/greese/dasein-cloud-terremark</url>
 	</scm>
+
 	<parent>
 		<groupId>org.sonatype.oss</groupId>
 		<artifactId>oss-parent</artifactId>
 		<version>5</version>
 	</parent>
+
 	<dependencies>
 		<!-- Compile -->
 		<dependency>
 			<groupId>org.dasein</groupId>
 			<artifactId>dasein-cloud-core</artifactId>
-			<version>2013.02.1</version>
+			<version>2013.04-SNAPSHOT</version>
 			<scope>compile</scope>
 			<optional>false</optional>
 		</dependency>
 		<dependency>
 			<groupId>org.dasein</groupId>
 			<artifactId>dasein-util</artifactId>
-			<version>2012.08</version>
+			<version>2013.02</version>
 			<scope>compile</scope>
 			<optional>false</optional>
 		</dependency>
@@ -71,22 +73,25 @@
 			<optional>false</optional>
 		</dependency>
 		<dependency>
-			<groupId>javax.servlet</groupId>
-			<artifactId>servlet-api</artifactId>
-			<version>2.5</version>
-			<scope>compile</scope>
-		</dependency>
-		<dependency>
 			<groupId>org.json</groupId>
 			<artifactId>json</artifactId>
 			<version>20090211</version>
 			<scope>compile</scope>
 		</dependency>
+
+        <!-- Provided -->
+        <dependency>
+            <groupId>javax.servlet</groupId>
+            <artifactId>servlet-api</artifactId>
+            <version>2.5</version>
+            <scope>provided</scope>
+        </dependency>
+
 		<!-- Test -->
 		<dependency>
 			<groupId>org.dasein</groupId>
 			<artifactId>dasein-cloud-test</artifactId>
-			<version>2013.02.3</version>
+			<version>2013.04-SNAPSHOT</version>
 			<scope>test</scope>
 			<optional>false</optional>
 		</dependency>
@@ -243,7 +248,7 @@
 						</property>
 					</systemProperties>
 					<includes>
-						<include>**/TerremarkTestSuite.java</include>
+						<!-- <include>**/TerremarkTestSuite.java</include> -->
 					</includes>
 				</configuration>
 			</plugin>

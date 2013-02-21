@@ -33,6 +33,7 @@ import org.dasein.cloud.ProviderContext;
 import org.dasein.cloud.Requirement;
 import org.dasein.cloud.ResourceStatus;
 import org.dasein.cloud.Tag;
+import org.dasein.cloud.compute.AbstractVMSupport;
 import org.dasein.cloud.compute.Architecture;
 import org.dasein.cloud.compute.ImageClass;
 import org.dasein.cloud.compute.MachineImage;
@@ -74,7 +75,7 @@ import org.w3c.dom.NamedNodeMap;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
-public class VMSupport implements VirtualMachineSupport {
+public class VMSupport extends AbstractVMSupport {
 
 	// API Calls
 	public final static String VIRTUAL_MACHINES        = "virtualMachines";
@@ -164,6 +165,7 @@ public class VMSupport implements VirtualMachineSupport {
 	private HashMap<String,String> imageMap = new HashMap<String,String>();
 
 	public VMSupport(Terremark t) {
+        super(t);
 		provider = t;
 	}
 
@@ -483,44 +485,6 @@ public class VMSupport implements VirtualMachineSupport {
 	@Override
 	public VMScalingCapabilities describeVerticalScalingCapabilities() throws CloudException, InternalException {
 		return VMScalingCapabilities.getInstance(false, true, Requirement.REQUIRED, Requirement.REQUIRED);
-	}
-
-	/**
-	 * Turns hypervisor monitoring off for the target server. If the underlying cloud does not support
-	 * hypervisor monitoring or if the underlying cloud does not allow them to be turned off/on for
-	 * a running instance, this method will be a NO-OP.
-	 * @param vmId the provider ID for the server to stop monitoring
-	 * @throws InternalException an error occurred within the Dasein Cloud API implementation
-	 * @throws CloudException an error occurred within the cloud provider
-	 */
-	@Override
-	public void disableAnalytics(String vmId) throws InternalException, CloudException {
-		// Terremark does not allow monitoring to be turned off
-	}
-
-	/**
-	 * Turns hypervisor monitoring on for the target server. If the underlying cloud does not support
-	 * hypervisor monitoring or if the underlying cloud does not allow them to be turned off/on for
-	 * a running instance, this method will be a NO-OP.
-	 * @param vmId the provider ID for the server to start monitoring
-	 * @throws InternalException an error occurred within the Dasein Cloud API implementation
-	 * @throws CloudException an error occurred within the cloud provider
-	 */
-	@Override
-	public void enableAnalytics(String vmId) throws InternalException, CloudException {
-		// Terremark does not allow monitoring to be turned on
-	}
-
-	/**
-	 * Provides all output from the console of the target server since the specified Unix time.
-	 * @param vmId the unique ID of the target server
-	 * @return the current output from the server console
-	 * @throws InternalException an error occurred within the Dasein Cloud API implementation
-	 * @throws CloudException an error occurred within the cloud provider
-	 */
-	@Override
-	public String getConsoleOutput(@Nonnull String vmId) throws InternalException, CloudException {
-		return ""; // This could potentially be implemented by reading a log file on the vm, but that would be different for each OS.
 	}
 
 	/**
@@ -956,76 +920,6 @@ public class VMSupport implements VirtualMachineSupport {
 	@Override
 	public boolean isUserDataSupported() throws CloudException, InternalException {
 		return false;
-	}
-
-	/**
-	 * Launches a virtual machine in the cloud. If the cloud supports persistent servers, this method will
-	 * first define a server and then boot it. The end result of this operation should be a server
-	 * that is in the middle of booting up.
-	 * @param fromMachineImageId the provider ID of the image from which the server should be built
-	 * @param product the product being provisioned against
-	 * @param dataCenterId the provider ID for the data center into which the server will be launched
-	 * @param name the name of the new server
-	 * @param description a user-friendly description of the new virtual machine
-	 * @param withKeypairId the name of the keypair to use for root authentication or null if no keypair
-	 * @param inVlanId the ID of the VLAN into which the server should be launched, or null if not specifying (or not supported by the cloud)
-	 * @param withAnalytics whether or not hypervisor analytics should be enabled for the virtual machine
-	 * @param asSandbox for clouds that require sandboxes for image building, this launches the VM in a sandbox context
-	 * @param firewallIds the firewalls to protect the new server
-	 * @return the newly launched server
-	 * @throws InternalException an error occurred within the Dasein Cloud API implementation
-	 * @throws CloudException an error occurred within the cloud provider
-	 * @deprecated use {@link #launch(VMLaunchOptions)}
-	 */
-	@Deprecated
-	@Override
-	public @Nonnull VirtualMachine launch(@Nonnull String fromMachineImageId, @Nonnull VirtualMachineProduct product, @Nonnull String dataCenterId, @Nonnull String name, @Nonnull String description, @Nullable String withKeypairId, @Nullable String inVlanId, boolean withAnalytics, boolean asSandbox, @Nullable String ... firewallIds) throws InternalException, CloudException {
-		return launch(fromMachineImageId, product, dataCenterId, name, description, withKeypairId, inVlanId, withAnalytics, asSandbox, firewallIds, new Tag[0]);
-	}
-
-	/**
-	 * Launches a virtual machine in the cloud. If the cloud supports persistent servers, this method will
-	 * first define a server and then boot it. The end result of this operation should be a server
-	 * that is in the middle of booting up.
-	 * @param fromMachineImageId the provider ID of the image from which the server should be built
-	 * @param product the product being provisioned against
-	 * @param dataCenterId the provider ID for the data center into which the server will be launched
-	 * @param name the name of the new server
-	 * @param description a user-friendly description of the new virtual machine
-	 * @param withKeypairId the name of the keypair to use for root authentication or null if no keypair
-	 * @param inVlanId the ID of the VLAN into which the server should be launched, or null if not specifying (or not supported by the cloud)
-	 * @param withAnalytics whether or not hypervisor analytics should be enabled for the virtual machine
-	 * @param asSandbox for clouds that require sandboxes for image building, this launches the VM in a sandbox context
-	 * @param firewallIds the firewalls to protect the new server
-	 * @param tags a list of meta data to pass to the cloud provider
-	 * @return the newly launched server
-	 * @throws InternalException an error occurred within the Dasein Cloud API implementation
-	 * @throws CloudException an error occurred within the cloud provider
-	 * @deprecated use {@link #launch(VMLaunchOptions)}
-	 */
-	@Deprecated
-	@Override
-	public @Nonnull VirtualMachine launch(@Nonnull String fromMachineImageId, @Nonnull VirtualMachineProduct product, @Nonnull String dataCenterId, @Nonnull String name, @Nonnull String description, @Nullable String withKeypairId, @Nullable String inVlanId, boolean withAnalytics, boolean asSandbox, @Nullable String[] firewallIds, @Nullable Tag ... tags)	throws InternalException, CloudException {
-		VMLaunchOptions cfg = VMLaunchOptions.getInstance(product.getProviderProductId(), fromMachineImageId, name, description == null ? name : description);
-
-		if( withKeypairId != null ) {
-			cfg.withBoostrapKey(withKeypairId);
-		}
-		if( inVlanId != null ) {
-			cfg.inVlan(null, dataCenterId, inVlanId);
-		}
-		if( dataCenterId != null ) {
-			cfg.inDataCenter(dataCenterId);
-		}
-		if( tags != null && tags.length > 0 ) {
-			HashMap<String,Object> meta = new HashMap<String, Object>();
-
-			for( Tag t : tags ) {
-				meta.put(t.getKey(), t.getValue());
-			}
-			cfg.withMetaData(meta);
-		}
-		return launch(cfg);
 	}
 
 	/**
@@ -1898,32 +1792,6 @@ public class VMSupport implements VirtualMachineSupport {
 	}
 
 	/**
-	 * Maps the specified Dasein Cloud service action to an identifier specific to an underlying cloud. If there is
-	 * no mapping that makes any sense, the method will return an empty array.
-	 * @param action the Dasein Cloud service action
-	 * @return a list of cloud-specific IDs (e.g. iam:ListGroups) representing an action with this cloud provider
-	 */
-	@Override
-	public String[] mapServiceAction(ServiceAction action) {
-		return new String[0];
-	}
-
-	/**
-	 * Shuts down the target virtual machine. This method is a NO-OP in clouds that lack persistent
-	 * servers. The result of this method should be either a) a server that is still runnning
-	 * (for non-persistent server clouds) or b) paused and capable of being restarted (for persistent
-	 * server clouds). In no case should this method cause a destructive event such as the loss
-	 * of a server.
-	 * @param vmId the provider ID for the server to pause
-	 * @throws InternalException an error occurred within the Dasein Cloud API implementation
-	 * @throws CloudException an error occurred within the cloud provider
-	 */
-	@Override
-	public void pause(@Nonnull String vmId) throws InternalException, CloudException {
-		throw new OperationNotSupportedException("Terremark does not support pausing vms");
-	}
-
-	/**
 	 * Power off stops the virtual machine without waiting for processes to complete.
 	 * @param vmId the provider ID for the server to power off
 	 * @throws InternalException an error occurred within the Dasein Cloud API implementation
@@ -1954,19 +1822,6 @@ public class VMSupport implements VirtualMachineSupport {
 			String taskHref = Terremark.getTaskHref(doc, REBOOT_OPERATION);
 			provider.waitForTask(taskHref, DEFAULT_SLEEP, DEFAULT_TIMEOUT);
 		}
-	}
-
-	/**
-	 * Resumes a previously suspended virtual machine and returns it to an operational state ({@link VmState#RUNNING}).
-	 * @param vmId the virtual machine ID to be resumed
-	 * @throws CloudException an error occurred with the cloud provider in attempting to resume the virtual machine
-	 * @throws InternalException an error occurred within the Dasein Cloud implementation
-	 * @throws OperationNotSupportedException the target virtual machine cannot be suspended/resumed
-	 * @see #suspend(String)
-	 */
-	@Override
-	public void resume(String vmId) throws CloudException, InternalException {
-		throw new OperationNotSupportedException("Terremark does not support resuming vms");
 	}
 
 	/**
@@ -2004,35 +1859,6 @@ public class VMSupport implements VirtualMachineSupport {
 
 	/**
 	 * Shuts down a virtual machine with the capacity to boot it back up at a later time. The contents of volumes
-	 * associated with this virtual machine are preserved, but the memory is not. This method should first
-	 * attempt a nice shutdown, then force the shutdown.
-	 * @param vmId the virtual machine to be shut down
-	 * @throws InternalException an error occurred within the Dasein Cloud API implementation
-	 * @throws CloudException an error occurred within the cloud provider
-	 * @throws OperationNotSupportedException starting/stopping is not supported for this virtual machine
-	 * @see #start(String)
-	 * @see #stop(String,boolean)
-	 */
-	@Override
-	public void stop(String vmId) throws InternalException, CloudException {
-		try {
-			shutdown(vmId);
-		}
-		catch(Exception e){
-			logger.debug("stop(): shutdown failed, trying power off");
-		}
-		VmState status = getVirtualMachine(vmId).getCurrentState();
-		if (!status.equals(VmState.STOPPED)){
-			powerOff(vmId);
-		}
-		status = getVirtualMachine(vmId).getCurrentState();
-		if (!status.equals(VmState.STOPPED)){
-			throw new CloudException("Failed to stop server");
-		}
-	}
-
-	/**
-	 * Shuts down a virtual machine with the capacity to boot it back up at a later time. The contents of volumes
 	 * associated with this virtual machine are preserved, but the memory is not.
 	 * @param vmId the virtual machine to be shut down
 	 * @param force whether or not to force a shutdown (kill the power)
@@ -2056,32 +1882,6 @@ public class VMSupport implements VirtualMachineSupport {
 	}
 
 	/**
-	 * Identifies whether or not this cloud supports hypervisor-based analytics around usage and performance.
-	 * @return true if this cloud supports hypervisor-based analytics
-	 * @throws CloudException an error occurred with the cloud provider determining analytics support
-	 * @throws InternalException an error occurred within the Dasein Cloud implementation determining analytics support
-	 */
-	@Override
-	public boolean supportsAnalytics() throws CloudException, InternalException {
-		//TODO: change this to true and implement analytics support
-		return false;
-	}
-
-	/**
-	 * Indicates whether the ability to pause/unpause a virtual machine is supported for the specified VM.
-	 * @param vm the virtual machine to verify
-	 * @return true if pause/unpause is supported for this virtual machine
-	 * @see #pause(String)
-	 * @see #unpause(String)
-	 * @see VmState#PAUSING
-	 * @see VmState#PAUSED
-	 */
-	@Override
-	public boolean supportsPauseUnpause(VirtualMachine vm) {
-		return false;
-	}
-
-	/**
 	 * Indicates whether the ability to start/stop a virtual machine is supported for the specified VM.
 	 * @param vm the virtual machine to verify
 	 * @return true if start/stop operations are supported for this virtual machine
@@ -2094,34 +1894,6 @@ public class VMSupport implements VirtualMachineSupport {
 	@Override
 	public boolean supportsStartStop(VirtualMachine vm) {
 		return true;
-	}
-
-	/**
-	 * Indicates whether the ability to suspend/resume a virtual machine is supported for the specified VM.
-	 * @param vm the virtual machine to verify
-	 * @return true if suspend/resume operations are supported for this virtual machine
-	 * @see #suspend(String)
-	 * @see #resume(String)
-	 * @see VmState#SUSPENDING
-	 * @see VmState#SUSPENDED
-	 */
-	@Override
-	public boolean supportsSuspendResume(VirtualMachine vm) {
-		return false;
-	}
-
-	/**
-	 * Suspends a running virtual machine so that the memory is flushed to some kind of persistent storage for
-	 * the purpose of later resuming the virtual machine in the exact same state.
-	 * @param vmId the unique ID of the virtual machine to be suspended
-	 * @throws CloudException an error occurred with the cloud provider suspending the virtual machine
-	 * @throws InternalException an error occurred within the Dasein Cloud implementation
-	 * @throws OperationNotSupportedException suspending is not supported for this virtual machine
-	 * @see #resume(String)
-	 */
-	@Override
-	public void suspend(String vmId) throws CloudException, InternalException {
-		throw new OperationNotSupportedException("Terremark does not support suspending vms");
 	}
 
 	/**
@@ -2524,20 +2296,6 @@ public class VMSupport implements VirtualMachineSupport {
 
 		logger.trace("exit - toVirtualMachine");
 		return vm;
-	}
-
-	/**
-	 * Executes a hypervisor unpause operation on a currently paused virtual machine, adding it back into the
-	 * hypervisor scheduler.
-	 * @param vmId the unique ID of the virtual machine to be unpaused
-	 * @throws CloudException an error occurred within the cloud provider while unpausing
-	 * @throws InternalException an error occurred within the Dasein Cloud API implementation
-	 * @throws OperationNotSupportedException pausing/unpausing is not supported for the specified virtual machine
-	 * @see #pause(String)
-	 */
-	@Override
-	public void unpause(String vmId) throws CloudException, InternalException {
-		throw new OperationNotSupportedException("Terremark does not support unpausing vms");
 	}
 
 	/**
