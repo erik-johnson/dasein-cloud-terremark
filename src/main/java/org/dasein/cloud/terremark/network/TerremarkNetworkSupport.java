@@ -261,7 +261,7 @@ public class TerremarkNetworkSupport  implements VLANSupport {
 	 */
 	public @Nonnull NetworkInterface getNetworkInterface(@Nonnull String networkHostId) throws CloudException, InternalException {
 		NetworkInterface networkInterface = null;
-		String url = "/" + NETWORK_HOSTS + "/" + networkHostId;
+		String url = "/" + NETWORK_HOSTS.toLowerCase() + "/" + networkHostId;
 		TerremarkMethod method = new TerremarkMethod(provider, HttpMethodName.GET, url, null, null);
 		Document doc = null;
 		try {

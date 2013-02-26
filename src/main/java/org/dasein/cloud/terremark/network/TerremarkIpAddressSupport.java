@@ -703,7 +703,9 @@ public class TerremarkIpAddressSupport  implements IpAddressSupport {
 					}
 					ip.setRegionId(provider.getContext().getRegionId());
 					NetworkInterface host = provider.getNetworkServices().getVlanSupport().getNetworkInterface(networkHostId);
-					ip.setServerId(host.getProviderVirtualMachineId());
+					if (host != null) {
+						ip.setServerId(host.getProviderVirtualMachineId());
+					}
 					ip.setReserved(reserved);
 					logger.debug("getIpAddresses(): Adding ip: " + ip);
 					ips.add(ip);

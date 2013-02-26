@@ -188,7 +188,7 @@ public class Terremark  extends AbstractCloud {
 	 * @return the firewall rule ID in the format {custom | nodeServices}/{firewall rule identifier | node service identifier}
 	 */
 	public static String hrefToFirewallRuleId (String href) {
-		String uri = FirewallRule.FIREWALL_ACLS + "/";
+		String uri = FirewallRule.FIREWALL_ACLS.toLowerCase() + "/";
 		String firewallRuleId = href.substring(href.lastIndexOf(uri)+uri.length());
 		return firewallRuleId;
 	}
