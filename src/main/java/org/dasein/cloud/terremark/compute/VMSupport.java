@@ -1190,7 +1190,9 @@ public class VMSupport implements VirtualMachineSupport {
 			for(String key: tags.keySet()){
 				Element tagElement = doc.createElement("Tag");
 				String tagValue = tags.get(key).toString();
-				tagElement.appendChild(doc.createTextNode(key + "=" + tagValue));
+				String tag = key + "=" + tagValue;
+				tag = Terremark.removeCommas(tag);
+				tagElement.appendChild(doc.createTextNode(tag));
 				tagsElement.appendChild(tagElement);
 				rootElement.appendChild(tagsElement);
 			}
@@ -1441,7 +1443,9 @@ public class VMSupport implements VirtualMachineSupport {
 			for(String key: tags.keySet()){
 				Element tagElement = doc.createElement("Tag");
 				String tagValue = tags.get(key).toString();
-				tagElement.appendChild(doc.createTextNode(key + "=" + tagValue));
+				String tag = key + "=" + tagValue;
+				tag = Terremark.removeCommas(tag);
+				tagElement.appendChild(doc.createTextNode(tag));
 				tagsElement.appendChild(tagElement);
 			}
 			rootElement.appendChild(tagsElement);

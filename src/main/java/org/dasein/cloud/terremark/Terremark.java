@@ -13,6 +13,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TimeZone;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -576,6 +578,13 @@ public class Terremark  extends AbstractCloud {
 			throw new CloudException("waitForTask(): Get task call failed " + failedCalls + " times. Giving up.");
 		}
 		logger.debug("exit - waitForTask(): " + taskHref);
+	}
+	
+	public static String removeCommas(String tag) {
+		Pattern p = Pattern.compile("[, ]");
+		Matcher m = p.matcher(tag);
+		String clean = m.replaceFirst("");
+		return clean;
 	}
 
 }
