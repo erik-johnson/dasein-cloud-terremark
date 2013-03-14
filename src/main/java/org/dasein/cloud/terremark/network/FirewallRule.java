@@ -289,17 +289,19 @@ public class FirewallRule implements FirewallSupport {
 
 			rootElement.appendChild(destinationElement);
 
-			Element portRangeElement = doc.createElement("PortRange");
+			if (beginPort > -1) {
+				Element portRangeElement = doc.createElement("PortRange");
+				
+				Element addressElement = doc.createElement("Start");
+				addressElement.appendChild(doc.createTextNode(Integer.toString(beginPort)));
+				portRangeElement.appendChild(addressElement);
 
-			Element addressElement = doc.createElement("Start");
-			addressElement.appendChild(doc.createTextNode(Integer.toString(beginPort)));
-			portRangeElement.appendChild(addressElement);
-
-			Element sizeElement = doc.createElement("End");
-			sizeElement.appendChild(doc.createTextNode(Integer.toString(endPort)));
-			portRangeElement.appendChild(sizeElement);
-
-			rootElement.appendChild(portRangeElement);
+				Element sizeElement = doc.createElement("End");
+				sizeElement.appendChild(doc.createTextNode(endPort == -1 ? String.valueOf(beginPort) : String.valueOf(endPort)));
+				portRangeElement.appendChild(sizeElement);
+				
+				rootElement.appendChild(portRangeElement);
+			}
 
 			doc.appendChild(rootElement);
 
