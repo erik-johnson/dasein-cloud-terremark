@@ -388,7 +388,7 @@ public class TerremarkIpAddressSupport  implements IpAddressSupport {
 			RawAddress[] addresses = server.getPrivateAddresses();
 
 			if( addresses != null && addresses.length > 0 ) {
-				privateAddressId = addresses[0].getIpAddress();
+				privateAddressId = server.getProviderVlanId() + "/" + addresses[0].getIpAddress();
 			}
 			if( logger.isDebugEnabled() ) {
 				logger.debug("forward(): privateAddressId=" + privateAddressId);
