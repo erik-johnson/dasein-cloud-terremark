@@ -2295,7 +2295,7 @@ public class VMSupport implements VirtualMachineSupport {
 					String tagValue = tags.item(j).getTextContent();
 					if (Terremark.getTemplateIdFromHref(tagValue) != null){
 						templateId = Terremark.getTemplateIdFromHref(tagValue);
-						//vm.setProviderMachineImageId(provider.getTemplateIdFromHref(tagValue));
+						vm.setProviderMachineImageId(templateId);
 						logger.debug("toVirtualMachine(): ID = " + vm.getProviderVirtualMachineId() + " Machine Image ID = " + vm.getProviderMachineImageId());
 					}
 					else {
@@ -2496,10 +2496,7 @@ public class VMSupport implements VirtualMachineSupport {
 			logger.debug("VM Status = " + status + " & PoweredOn = " + poweredOn + ", Setting current state to: " + state);
 			vm.setCurrentState(state);
 		}
-		if (templateId != null){
-			vm.setProviderMachineImageId(templateId);
-		}
-		else if (osName != null){
+		if (vm.getProviderMachineImageId() == null && osName != null){
 			logger.debug("toVirtualMachine(): Could not identify the template id, guessing based on OS name");
 			vm.setProviderMachineImageId(guessImageId(osName));
 		}

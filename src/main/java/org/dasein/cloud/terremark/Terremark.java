@@ -170,6 +170,7 @@ public class Terremark  extends AbstractCloud {
 		}
 		return href;
 	}
+	
 	public static String getTemplateIdFromHref(String templateHref){
 		String id = null;
 		String templateString = "/" + Template.TEMPLATES + "/";
@@ -187,14 +188,16 @@ public class Terremark  extends AbstractCloud {
 			id = templateHref.substring(startTemplateId, templateHref.indexOf(cpString)) + ":" + templateHref.substring(startCPId) + ":" + Template.ImageType.TEMPLATE.name();
 		}
 		else {
-			id = templateHref;
+			id = null;
 			logger.warn("getTemplateIdFromHref(): Failed to parse template href " + templateHref);
 		}
 		return id;
 	}
+	
 	static public Logger getWireLogger(Class<?> cls) {
 		return Logger.getLogger("dasein.cloud.terremark.wire." + getLastItem(cls.getPackage().getName()) + "." + getLastItem(cls.getName()));
 	}
+	
 	/**
 	 * Converts a firewall acls href to the ID format ({custom | nodeServices}/{firewall rule identifier | node service identifier}).
 	 * @param href A FirewallAcl href
