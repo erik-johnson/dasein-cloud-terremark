@@ -16,7 +16,7 @@
 	<version>2013.02.3-SNAPSHOT</version>
 	<packaging>jar</packaging>
 	<name>dasein-cloud-terremark</name>
-	<description>    Implementation of the Dasein Cloud API for Terremark Enterprise Cloud and Terremark vCloud Express.  </description>
+	<description>Implementation of the Dasein Cloud API for Terremark Enterprise Cloud.</description>
 	<inceptionYear>2012</inceptionYear>
 	<url>http://github.com/erik-johnson/dasein-cloud-terremark</url>
 	<properties>
