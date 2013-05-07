@@ -638,6 +638,7 @@ public class TerremarkIpAddressSupport  implements IpAddressSupport {
 			boolean reservable = true;
 			boolean reserved = false;
 			String networkHostId = null;
+			boolean hostUnavailable = false;
 			for (int j = 0; j < ipAddressChildren.getLength(); j++) {
 				Node ipChild = ipAddressChildren.item(j);
 				String ipChildName = ipChild.getNodeName();
@@ -654,6 +655,10 @@ public class TerremarkIpAddressSupport  implements IpAddressSupport {
 				}
 				if (ipChildName.equalsIgnoreCase(HOST_TAG) || ipChildName.equalsIgnoreCase(DETECTED_ON_TAG)) {
 					String hostHref = ipChild.getAttributes().getNamedItem(Terremark.HREF).getNodeValue();
+					Node accessible = ipChild.getAttributes().getNamedItem(Terremark.ACCESSIBLE);
+					if (accessible != null) {
+						hostUnavailable = accessible.getNodeValue().equals("false");
+					}
 					networkHostId = Terremark.hrefToId(hostHref);
 					available = false;
 				}
@@ -702,8 +707,13 @@ public class TerremarkIpAddressSupport  implements IpAddressSupport {
 						ip.setVersion(IPVersion.IPV4);
 					}
 					ip.setRegionId(provider.getContext().getRegionId());
-					NetworkInterface host = provider.getNetworkServices().getVlanSupport().getNetworkInterface(networkHostId);
-					ip.setServerId(host.getProviderVirtualMachineId());
+					NetworkInterface host = null;
+					if (hostUnavailable == false) {
+						host = provider.getNetworkServices().getVlanSupport().getNetworkInterface(networkHostId);
+					}
+					if (host != null) {
+						ip.setServerId(host.getProviderVirtualMachineId());
+					}
 					ip.setReserved(reserved);
 					logger.debug("getIpAddresses(): Adding ip: " + ip);
 					ips.add(ip);

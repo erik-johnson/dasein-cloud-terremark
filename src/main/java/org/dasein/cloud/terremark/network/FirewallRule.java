@@ -283,13 +283,8 @@ public class FirewallRule implements FirewallSupport {
 				destinationElement.appendChild(networkElement);
 			}
 			else if (destinationType.equals(RuleTargetType.GLOBAL)) {
-				if (permission.equals(Permission.ALLOW)) {
-					throw new InternalException("Creating firewall rules with a global destination can only be done with deny permission rules.");
-				}
-				else {
-					destinationTypeElement.appendChild(doc.createTextNode("Any"));
-					destinationElement.appendChild(destinationTypeElement);
-				}
+				destinationTypeElement.appendChild(doc.createTextNode("Any"));
+				destinationElement.appendChild(destinationTypeElement);
 			}
 
 			rootElement.appendChild(destinationElement);
