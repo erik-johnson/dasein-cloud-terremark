@@ -566,7 +566,8 @@ public class Template  implements MachineImageSupport {
 
 		Thread t = new Thread() {
 			public void run() {
-				while( DEFAULT_TIMEOUT > System.currentTimeMillis() ) {
+				final long startTime = System.currentTimeMillis();
+				while( (startTime + DEFAULT_TIMEOUT) > System.currentTimeMillis() ) {
 					try { Thread.sleep(15000L); }
 					catch( InterruptedException ignore ) { }
 					oldTask.setPercentComplete(task.getPercentComplete());

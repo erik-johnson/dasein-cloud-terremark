@@ -240,7 +240,7 @@ public class VMSupport implements VirtualMachineSupport {
 			Element processorCountElement = doc.createElement("ProcessorCount");
 			processorCountElement.appendChild(doc.createTextNode(cpuCount));
 			rootElement.appendChild(processorCountElement);
-			
+
 			Element memoryElement = doc.createElement("Memory");
 			Element memoryUnitElement = doc.createElement("Unit");
 			memoryUnitElement.appendChild(doc.createTextNode("MB"));
@@ -249,24 +249,24 @@ public class VMSupport implements VirtualMachineSupport {
 			memoryValueElement.appendChild(doc.createTextNode(ramSize));
 			memoryElement.appendChild(memoryValueElement);
 			rootElement.appendChild(memoryElement);
-			
+
 			Element disksElement = doc.createElement("Disks");
 			for (String diskSize : diskSizes) {
 				Element diskElement = doc.createElement("Disk");
 				Element diskSizeElement = doc.createElement("Size");
-				
+
 				Element diskUnitElement = doc.createElement("Unit");
 				diskUnitElement.appendChild(doc.createTextNode("GB"));
 				diskSizeElement.appendChild(diskUnitElement);
 				Element diskValueElement = doc.createElement("Value");
 				diskValueElement.appendChild(doc.createTextNode(diskSize));
 				diskSizeElement.appendChild(diskValueElement);
-				
+
 				diskElement.appendChild(diskSizeElement);
 				disksElement.appendChild(diskElement);
 			}
 			rootElement.appendChild(disksElement);
-			
+
 			Element nicsElement = doc.createElement("Nics");
 			int nicCount = Integer.parseInt((String) vm.getTag("nic-count"));
 			for (int i=0; i<nicCount; i++) {
@@ -277,21 +277,21 @@ public class VMSupport implements VirtualMachineSupport {
 				String nicNetworkName = nicInfo[2];
 				String nicNetworkType = nicInfo[3];
 				Element nicElement = doc.createElement("Nic");
-				
+
 				Element unitNumberElement = doc.createElement("UnitNumber");
 				unitNumberElement.appendChild(doc.createTextNode(nicNumber));
 				nicElement.appendChild(unitNumberElement);
-				
+
 				Element networkElement = doc.createElement("Network");
 				networkElement.setAttribute(Terremark.HREF, nicNetworkHref);
 				networkElement.setAttribute(Terremark.NAME, nicNetworkName);
 				networkElement.setAttribute(Terremark.TYPE, nicNetworkType);
 				nicElement.appendChild(networkElement);
-				
+
 				nicsElement.appendChild(nicElement);
 			}
 			rootElement.appendChild(nicsElement);
-			
+
 			doc.appendChild(rootElement);
 
 			StringWriter stw = new StringWriter(); 
@@ -309,7 +309,7 @@ public class VMSupport implements VirtualMachineSupport {
 			String taskHref = Terremark.getTaskHref(doc, CONFIGURE_OPERATION);
 			provider.waitForTask(taskHref, DEFAULT_SLEEP, DEFAULT_TIMEOUT);
 		}
-		
+
 		return getVirtualMachine(vmId);
 	}
 
@@ -394,7 +394,7 @@ public class VMSupport implements VirtualMachineSupport {
 		String url = "/" + VIRTUAL_MACHINES + "/" + EnvironmentsAndComputePools.COMPUTE_POOLS + "/" + intoDcId + "/" + Terremark.ACTION + "/" + COPY_IDENTICAL_VM;
 
 		String body = "";
-		
+
 		Layout layout = getLayout(provider.getContext().getRegionId());
 		String rowId = null;
 		String groupId = null;
@@ -407,12 +407,12 @@ public class VMSupport implements VirtualMachineSupport {
 			Document doc = docBuilder.newDocument();
 			Element rootElement = doc.createElement("CopyIdenticalVirtualMachine");
 			rootElement.setAttribute(Terremark.NAME, name);
-			
+
 			Element sourceElement = doc.createElement("Source");
 			sourceElement.setAttribute(Terremark.HREF, Terremark.DEFAULT_URI_PATH + "/" + VIRTUAL_MACHINES + "/" + vmId);
 			sourceElement.setAttribute(Terremark.TYPE, VIRTUAL_MACHINE_TYPE);
 			rootElement.appendChild(sourceElement);
-			
+
 			Element layoutElement = doc.createElement("Layout");
 			if (layout.contains(ROW_NAME, GROUP_NAME)){
 				Row row = layout.getRowId(ROW_NAME, GROUP_NAME);
@@ -442,11 +442,11 @@ public class VMSupport implements VirtualMachineSupport {
 				layoutElement.appendChild(newGroup);
 			}
 			rootElement.appendChild(layoutElement);
-			
+
 			Element descriptionElement = doc.createElement("Description");
 			descriptionElement.appendChild(doc.createTextNode(description));
 			rootElement.appendChild(descriptionElement);
-			
+
 			doc.appendChild(rootElement);
 
 			StringWriter stw = new StringWriter(); 
@@ -1190,7 +1190,9 @@ public class VMSupport implements VirtualMachineSupport {
 			for(String key: tags.keySet()){
 				Element tagElement = doc.createElement("Tag");
 				String tagValue = tags.get(key).toString();
-				tagElement.appendChild(doc.createTextNode(key + "=" + tagValue));
+				String tag = key + "=" + tagValue;
+				tag = Terremark.removeCommas(tag);
+				tagElement.appendChild(doc.createTextNode(tag));
 				tagsElement.appendChild(tagElement);
 				rootElement.appendChild(tagsElement);
 			}
@@ -1441,7 +1443,9 @@ public class VMSupport implements VirtualMachineSupport {
 			for(String key: tags.keySet()){
 				Element tagElement = doc.createElement("Tag");
 				String tagValue = tags.get(key).toString();
-				tagElement.appendChild(doc.createTextNode(key + "=" + tagValue));
+				String tag = key + "=" + tagValue;
+				tag = Terremark.removeCommas(tag);
+				tagElement.appendChild(doc.createTextNode(tag));
 				tagsElement.appendChild(tagElement);
 			}
 			rootElement.appendChild(tagsElement);
@@ -2165,6 +2169,7 @@ public class VMSupport implements VirtualMachineSupport {
 			return null;
 		}
 		VirtualMachine vm = new VirtualMachine();
+
 		ProviderContext ctx = provider.getContext();
 		if (ctx == null){
 			logger.warn("Context is null");
@@ -2290,7 +2295,7 @@ public class VMSupport implements VirtualMachineSupport {
 					String tagValue = tags.item(j).getTextContent();
 					if (Terremark.getTemplateIdFromHref(tagValue) != null){
 						templateId = Terremark.getTemplateIdFromHref(tagValue);
-						//vm.setProviderMachineImageId(provider.getTemplateIdFromHref(tagValue));
+						vm.setProviderMachineImageId(templateId);
 						logger.debug("toVirtualMachine(): ID = " + vm.getProviderVirtualMachineId() + " Machine Image ID = " + vm.getProviderMachineImageId());
 					}
 					else {
@@ -2401,13 +2406,14 @@ public class VMSupport implements VirtualMachineSupport {
 								for (int l=0; l < networksNodes.getLength(); l++){
 									Node networkNode = networksNodes.item(l);
 									NamedNodeMap networkAttrs = networkNode.getAttributes();
-									String networkType = networkAttrs.getNamedItem(Terremark.TYPE).getNodeValue();
-									if (networkType.equals(TerremarkNetworkSupport.NETWORK_TYPE) || networkType.equals(TerremarkNetworkSupport.NETWORK_IPV6_TYPE)) {
-										NodeList ipAddressNodes = networkNode.getFirstChild().getChildNodes();
-										for (int n=0; n < ipAddressNodes.getLength(); n++){
-											String address = ipAddressNodes.item(n).getTextContent();
-											addresses.add(address);
-										}
+									if (l == 0) {
+										String networkId = Terremark.hrefToNetworkId(networkAttrs.getNamedItem(Terremark.HREF).getNodeValue());
+										vm.setProviderVlanId(networkId);
+									}
+									NodeList ipAddressNodes = networkNode.getFirstChild().getChildNodes();
+									for (int n=0; n < ipAddressNodes.getLength(); n++){
+										String address = ipAddressNodes.item(n).getTextContent();
+										addresses.add(address);
 									}
 								}
 								break;
@@ -2490,10 +2496,7 @@ public class VMSupport implements VirtualMachineSupport {
 			logger.debug("VM Status = " + status + " & PoweredOn = " + poweredOn + ", Setting current state to: " + state);
 			vm.setCurrentState(state);
 		}
-		if (templateId != null){
-			vm.setProviderMachineImageId(templateId);
-		}
-		else if (osName != null){
+		if (vm.getProviderMachineImageId() == null && osName != null){
 			logger.debug("toVirtualMachine(): Could not identify the template id, guessing based on OS name");
 			vm.setProviderMachineImageId(guessImageId(osName));
 		}

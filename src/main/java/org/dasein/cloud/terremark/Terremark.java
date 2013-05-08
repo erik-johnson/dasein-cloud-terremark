@@ -13,6 +13,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TimeZone;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -168,6 +170,7 @@ public class Terremark  extends AbstractCloud {
 		}
 		return href;
 	}
+	
 	public static String getTemplateIdFromHref(String templateHref){
 		String id = null;
 		String templateString = "/" + Template.TEMPLATES + "/";
@@ -185,14 +188,16 @@ public class Terremark  extends AbstractCloud {
 			id = templateHref.substring(startTemplateId, templateHref.indexOf(cpString)) + ":" + templateHref.substring(startCPId) + ":" + Template.ImageType.TEMPLATE.name();
 		}
 		else {
-			id = templateHref;
+			id = null;
 			logger.warn("getTemplateIdFromHref(): Failed to parse template href " + templateHref);
 		}
 		return id;
 	}
+	
 	static public Logger getWireLogger(Class<?> cls) {
 		return Logger.getLogger("dasein.cloud.terremark.wire." + getLastItem(cls.getPackage().getName()) + "." + getLastItem(cls.getName()));
 	}
+	
 	/**
 	 * Converts a firewall acls href to the ID format ({custom | nodeServices}/{firewall rule identifier | node service identifier}).
 	 * @param href A FirewallAcl href
@@ -576,6 +581,13 @@ public class Terremark  extends AbstractCloud {
 			throw new CloudException("waitForTask(): Get task call failed " + failedCalls + " times. Giving up.");
 		}
 		logger.debug("exit - waitForTask(): " + taskHref);
+	}
+	
+	public static String removeCommas(String tag) {
+		Pattern p = Pattern.compile("[, ]");
+		Matcher m = p.matcher(tag);
+		String clean = m.replaceFirst("");
+		return clean;
 	}
 
 }
