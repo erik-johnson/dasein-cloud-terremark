@@ -13,6 +13,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TimeZone;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -61,11 +63,11 @@ public class Terremark  extends AbstractCloud {
 	static public final String TMRK_DATE             = "x-tmrk-date";
 
 	static public final String TMRK_VERSION          = "x-tmrk-version";
-	
-    //Conditional Headers
+
+	//Conditional Headers
 	static public final String ACCEPT                = "Accept";
 
-    static public final String CONTENT_LENGTH        = "Content-Length";
+	static public final String CONTENT_LENGTH        = "Content-Length";
 
 	static public final String CONTENT_LOCATION      = "Content-Location";
 
@@ -105,6 +107,7 @@ public class Terremark  extends AbstractCloud {
 	public final static String NAME                  = "name";
 	public final static String HREF                  = "href";
 	public final static String TYPE                  = "type";
+	public final static String ACCESSIBLE            = "accessible";
 	// Task Tags & Status
 	public final static String TASK_TAG              = "Task";
 	public final static String OPERATION_TAG         = "Operation";
@@ -167,31 +170,56 @@ public class Terremark  extends AbstractCloud {
 		}
 		return href;
 	}
+	
 	public static String getTemplateIdFromHref(String templateHref){
 		String id = null;
 		String templateString = "/" + Template.TEMPLATES + "/";
-		String cpString = "/" + EnvironmentsAndComputePools.COMPUTE_POOLS.toLowerCase() + "/";
+		String cpLowerString = "/" + EnvironmentsAndComputePools.COMPUTE_POOLS.toLowerCase() + "/";
+		String cpString = "/" + EnvironmentsAndComputePools.COMPUTE_POOLS + "/";
 		templateHref = templateHref.toLowerCase();
-		if (templateHref.contains(templateString) && templateHref.contains(cpString)){
+		if (templateHref.contains(templateString) && templateHref.contains(cpLowerString)){
+			int startTemplateId = templateHref.indexOf(templateString) + templateString.length();
+			int startCPId = templateHref.indexOf(cpLowerString) + cpLowerString.length();
+			id = templateHref.substring(startTemplateId, templateHref.indexOf(cpLowerString)) + ":" + templateHref.substring(startCPId) + ":" + Template.ImageType.TEMPLATE.name();
+		}
+		else if (templateHref.contains(templateString) && templateHref.contains(cpString)){
 			int startTemplateId = templateHref.indexOf(templateString) + templateString.length();
 			int startCPId = templateHref.indexOf(cpString) + cpString.length();
 			id = templateHref.substring(startTemplateId, templateHref.indexOf(cpString)) + ":" + templateHref.substring(startCPId) + ":" + Template.ImageType.TEMPLATE.name();
 		}
+		else {
+			id = null;
+			logger.warn("getTemplateIdFromHref(): Failed to parse template href " + templateHref);
+		}
 		return id;
 	}
+	
 	static public Logger getWireLogger(Class<?> cls) {
 		return Logger.getLogger("dasein.cloud.terremark.wire." + getLastItem(cls.getPackage().getName()) + "." + getLastItem(cls.getName()));
 	}
+	
 	/**
 	 * Converts a firewall acls href to the ID format ({custom | nodeServices}/{firewall rule identifier | node service identifier}).
 	 * @param href A FirewallAcl href
 	 * @return the firewall rule ID in the format {custom | nodeServices}/{firewall rule identifier | node service identifier}
 	 */
 	public static String hrefToFirewallRuleId (String href) {
-		String uri = FirewallRule.FIREWALL_ACLS.toLowerCase() + "/";
-		String firewallRuleId = href.substring(href.lastIndexOf(uri)+uri.length());
+		final String uri = FirewallRule.FIREWALL_ACLS + "/";
+		final String lowerUri = FirewallRule.FIREWALL_ACLS.toLowerCase() + "/";
+		String firewallRuleId = "";
+		if (href.contains(lowerUri)) {
+			firewallRuleId = href.substring(href.lastIndexOf(lowerUri)+lowerUri.length());
+		}
+		else if (href.contains(uri)) {
+			firewallRuleId = href.substring(href.lastIndexOf(uri)+uri.length());
+		}
+		else {
+			firewallRuleId = href;
+			logger.warn("hrefToFirewallRuleId(): Failed to parse firewall rule href " + href);
+		}
 		return firewallRuleId;
 	}
+
 	public static String hrefToId(String href) {
 		return href.substring(href.lastIndexOf("/")+1);
 	}
@@ -201,10 +229,22 @@ public class Terremark  extends AbstractCloud {
 	 * @return the network or IP address ID in the format network_id or netowrk_id/ipv6 or network_id/ip_address or network_id/ipv6/ip_address
 	 */
 	public static String hrefToNetworkId (String href) {
-		int beginIndex = href.indexOf(TerremarkNetworkSupport.NETWORKS + "/") + TerremarkNetworkSupport.NETWORKS.length() + 1;
-		return href.substring(beginIndex, href.length());
+		String networkId = null;
+		if (href.contains(TerremarkNetworkSupport.NETWORKS)) {
+			int beginIndex = href.indexOf(TerremarkNetworkSupport.NETWORKS + "/") + TerremarkNetworkSupport.NETWORKS.length() + 1;
+			networkId = href.substring(beginIndex, href.length());
+		}
+		else if (href.contains(TerremarkNetworkSupport.NETWORKS.toLowerCase())) {
+			int beginIndex = href.indexOf(TerremarkNetworkSupport.NETWORKS.toLowerCase() + "/") + TerremarkNetworkSupport.NETWORKS.length() + 1;
+			networkId = href.substring(beginIndex, href.length());
+		}
+		else {
+			networkId = href;
+			logger.warn("hrefToNetworkId(): Failed to parse network href " + href);
+		}
+		return networkId;
 	}
-	
+
 	public static Date parseIsoDate(String isoDateString) {
 		java.text.DateFormat df = new SimpleDateFormat(ISO8601_PATTERN);
 		df.setTimeZone(TimeZone.getTimeZone("UTC"));
@@ -256,7 +296,7 @@ public class Terremark  extends AbstractCloud {
 	private transient volatile Organization currentOrg;
 
 	public Terremark() { }
-	
+
 	@Override
 	public String getCloudName() {
 		String name = getContext().getCloudName();
@@ -371,15 +411,15 @@ public class Terremark  extends AbstractCloud {
 		}
 		return currentOrg;
 	}
-	
+
 	@Override
 	public String getProviderName() {
-        ProviderContext ctx = getContext();
+		ProviderContext ctx = getContext();
 		String name = (ctx == null ? null : ctx.getProviderName());
 
 		return ((name == null) ? TerremarkProvider.ENTERPRISE_CLOUD.getName() : name);
 	}
-	
+
 	public String getProxyHost() {
 		return getContext().getCustomProperties().getProperty("proxyHost");
 	}
@@ -404,12 +444,12 @@ public class Terremark  extends AbstractCloud {
 	}
 
 	public @Nonnull TerremarkProvider getTerremarkProvider() {
-        if( provider == null ) {
-            provider = TerremarkProvider.valueOf(getProviderName());
-        }
-        return provider;
-    }
-	
+		if( provider == null ) {
+			provider = TerremarkProvider.valueOf(getProviderName());
+		}
+		return provider;
+	}
+
 	@Override
 	public @Nullable String testContext() {
 		try {
@@ -425,7 +465,7 @@ public class Terremark  extends AbstractCloud {
 					ctx.setRegionId(regions.iterator().next().getProviderRegionId());
 				}
 			}
-			
+
 			if( !getComputeServices().getVirtualMachineSupport().isSubscribed() ) {
 				System.out.println("isSubscribed is false");
 				return null;
@@ -440,7 +480,7 @@ public class Terremark  extends AbstractCloud {
 			return null;
 		}
 	}
-	
+
 	private Organization toOrg(Document doc) throws CloudException {
 		Logger logger = getLogger(Terremark.class);
 		Organization org = new Organization();
@@ -541,6 +581,13 @@ public class Terremark  extends AbstractCloud {
 			throw new CloudException("waitForTask(): Get task call failed " + failedCalls + " times. Giving up.");
 		}
 		logger.debug("exit - waitForTask(): " + taskHref);
+	}
+	
+	public static String removeCommas(String tag) {
+		Pattern p = Pattern.compile("[, ]");
+		Matcher m = p.matcher(tag);
+		String clean = m.replaceFirst("");
+		return clean;
 	}
 
 }

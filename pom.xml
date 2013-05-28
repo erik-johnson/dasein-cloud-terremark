@@ -29,8 +29,8 @@
 		</license>
 	</licenses>
 	<organization>
-		<name>enStratus Networks Inc</name>
-		<url>http://www.enstratus.com</url>
+		<name>Enstratius, Inc</name>
+		<url>http://www.enstratius.com</url>
 	</organization>
 	<scm>
 		<connection>scm:git:git://github.com/greese/dasein-cloud-terremark.git</connection>

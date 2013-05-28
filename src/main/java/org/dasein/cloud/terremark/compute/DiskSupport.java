@@ -464,11 +464,8 @@ public class DiskSupport extends AbstractVolumeSupport {
 					if (diskChild.getNodeName().equals("Index")) {
 						String diskIndex = diskChild.getTextContent();
 						disk.setProviderVolumeId(vmId + ":" + diskIndex);
-					}
-					else if (diskChild.getNodeName().equals("Type")) {
-						boolean rootVolume = diskChild.getNodeValue().equalsIgnoreCase("System");
-						disk.setRootVolume(rootVolume);
-						if (rootVolume) {
+						if (diskIndex.equals("0")) {
+							disk.setRootVolume(true);
 							String os = doc.getElementsByTagName("OperatingSystem").item(0).getAttributes().getNamedItem(Terremark.NAME).getNodeValue();
 							disk.setGuestOperatingSystem(Platform.guess(os));
 						}
@@ -640,6 +637,15 @@ public class DiskSupport extends AbstractVolumeSupport {
 							}
 							else {
 								volume.setCurrentState(VolumeState.PENDING);
+							}
+						}
+						else if (diskChild.getNodeName().equals("Type")) {
+							boolean rootVolume = diskChild.getNodeValue().equalsIgnoreCase("System");
+							volume.setRootVolume(rootVolume);
+							if (rootVolume) {
+								//Fix this, don't get this from doc
+								String os = doc.getElementsByTagName("OperatingSystem").item(0).getAttributes().getNamedItem(Terremark.NAME).getNodeValue();
+								volume.setGuestOperatingSystem(Platform.guess(os));
 							}
 						}
 					}
