@@ -295,7 +295,7 @@ public class Template extends AbstractImageSupport {
 	@Override
 	public @Nullable MachineImage getImage(String providerImageId) throws CloudException, InternalException {
 		if (providerImageId == null){
-			logger.debug("getMachineImage(): The image id is null");
+			logger.debug("getImage(): The image id is null");
 			return null;
 		}
 		MachineImage template = null;
@@ -310,7 +310,7 @@ public class Template extends AbstractImageSupport {
 			imageType = imageIds[2];
 		}
 		else {
-			logger.error("getMachineImage(): Invalid machineImageId " + providerImageId + ". Must be of the form: <templateId>:<computePoolId>:<image_type>");
+			logger.error("getImage(): Invalid machineImageId " + providerImageId + ". Must be of the form: <templateId>:<computePoolId>:<image_type>");
 			return null;
 		}
 		if (imageType.equalsIgnoreCase(ImageType.TEMPLATE.name())) {
@@ -320,11 +320,11 @@ public class Template extends AbstractImageSupport {
 			try {
 				doc = method.invoke();
 			} catch (TerremarkException e) {
-				logger.warn("Failed to get template " + providerImageId);
+				logger.warn("getImage(): Failed to get template " + providerImageId);
 			} catch (CloudException e) {
-				logger.warn("Failed to get template " + providerImageId);
+				logger.warn("getImage(): Failed to get template " + providerImageId);
 			} catch (InternalException e) {
-				logger.warn("Failed to get template " + providerImageId);
+				logger.warn("getImage(): Failed to get template " + providerImageId);
 			}
 			if (doc != null){
 				template = templateToMachineImage(doc);
@@ -337,11 +337,11 @@ public class Template extends AbstractImageSupport {
 			try {
 				doc = method.invoke();
 			} catch (TerremarkException e) {
-				logger.warn("Failed to get template " + providerImageId);
+				logger.warn("getImage(): Failed to get template " + providerImageId);
 			} catch (CloudException e) {
-				logger.warn("Failed to get template " + providerImageId);
+				logger.warn("getImage(): Failed to get template " + providerImageId);
 			} catch (InternalException e) {
-				logger.warn("Failed to get template " + providerImageId);
+				logger.warn("getImage(): Failed to get template " + providerImageId);
 			}
 			if (doc != null){
 				Node catalogEntryNode = doc.getElementsByTagName(CATALOG_ENTRY_TAG).item(0);
