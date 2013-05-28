@@ -589,5 +589,21 @@ public class Terremark  extends AbstractCloud {
 		String clean = m.replaceFirst("");
 		return clean;
 	}
+	
+	public static String getCatalogIdFromHref(String catalogHref) {
+		// "/" + Terremark.ADMIN + "/" + Template.CATALOG + "/" + catalogId
+		String id = null;
+		String catalogString = "/" + Terremark.ADMIN + "/" + Template.CATALOG + "/";
+		catalogHref = catalogHref.toLowerCase();
+		if (catalogHref.contains(catalogString)){
+			int startCatalogId = catalogHref.indexOf(catalogString) + catalogString.length();
+			id = catalogHref.substring(startCatalogId) + "::" + Template.ImageType.CATALOG_ENTRY.name();
+		}
+		else {
+			id = null;
+			logger.warn("getCatalogIdFromHref(): Failed to parse catalog href " + catalogHref);
+		}
+		return id;
+	}
 
 }
