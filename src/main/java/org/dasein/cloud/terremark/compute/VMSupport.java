@@ -1214,26 +1214,29 @@ public class VMSupport implements VirtualMachineSupport {
 		assignIpAddresses(vmId, networkMap);
 
 		logger.debug("launchFromCatalogItem(): getting virtual machine " + vmId);
-		server = getVirtualMachine(vmId);	
+		server = getVirtualMachine(vmId);
+		final String serverId = server.getProviderVirtualMachineId();
 
-		long waitTime = 0;
-		while (server.getCurrentState().equals(VmState.PENDING) && waitTime < DEFAULT_TIMEOUT) {
-			try {
-				Thread.sleep(DEFAULT_SLEEP);
-				waitTime += DEFAULT_SLEEP;
-				server = getVirtualMachine(vmId);
-				if (server.getCurrentState().equals(VmState.TERMINATED)) {
-					break;
-				}
-			} catch (InterruptedException e) {
-				if (logger.isDebugEnabled()) {
-					logger.warn("launchFromCatalogItem(): Thread was interrupted waiting for server to leave pending state.", e);
-				}
-				else {
-					logger.warn("launchFromCatalogItem(): Thread was interrupted waiting for server to leave pending state.");
-				}
-			}
-		}
+		Thread t = new Thread() {
+            public void run() {
+                provider.hold();
+                try {
+                    try {
+                    	waitForCatalogTask(serverId);
+                    }
+                    catch( Throwable t ) {
+                        logger.error("launchFromCatalogItem(): Failed while polling launch task for server " + serverId + ": " + t.getMessage());
+                        t.printStackTrace();
+                    }
+                }
+                finally {
+                    provider.release();
+                }
+            }
+        };
+        t.setName("Wait for Terremark Catalog Item Launch " + server.getProviderVirtualMachineId());
+        t.setDaemon(true);
+        t.start();
 
 		if (server.getCurrentState().equals(VmState.STOPPED)) {
 			start(vmId);
@@ -1242,6 +1245,36 @@ public class VMSupport implements VirtualMachineSupport {
 
 		logger.trace("exit() - launchFromCatalogItem()");
 		return server;
+	}
+	
+	private void waitForCatalogTask(String serverId) throws InternalException, CloudException {
+		final long catalogImportTimeout = CalendarWrapper.HOUR * 28;
+		long waitTime = 0;
+		long sleepTime;
+		VirtualMachine server = getVirtualMachine(serverId);
+		while (server.getCurrentState().equals(VmState.PENDING) && waitTime < catalogImportTimeout) {
+			try {
+				if (waitTime < DEFAULT_TIMEOUT) {
+					sleepTime = DEFAULT_SLEEP;
+				}
+				else {
+					sleepTime = CalendarWrapper.MINUTE * 10;
+				}
+				Thread.sleep(sleepTime);
+				waitTime += sleepTime;
+				server = getVirtualMachine(serverId);
+				if (server.getCurrentState().equals(VmState.TERMINATED)) {
+					break;
+				}
+			} catch (InterruptedException e) {
+				if (logger.isDebugEnabled()) {
+					logger.warn("waitForCatalogTask(): Thread was interrupted waiting for server to leave pending state.", e);
+				}
+				else {
+					logger.warn("waitForCatalogTask(): Thread was interrupted waiting for server to leave pending state.");
+				}
+			}
+		}
 	}
 
 	private void addNetworkElement(Document doc, Element networkParentElement, String vlanId) throws CloudException, InternalException {
