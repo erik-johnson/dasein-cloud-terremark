@@ -1082,40 +1082,16 @@ public class VMSupport implements VirtualMachineSupport {
 	private @Nonnull VirtualMachine launchFromCatalogItem(@Nonnull String catalogId, @Nonnull String productString, @Nonnull String dataCenterId, @Nonnull String name, @Nonnull String description, @Nullable String inVlanId, @Nullable NICConfig[] nics, @Nullable Map<String, Object> tags)	throws InternalException, CloudException {
 		logger.trace("enter() - launchFromCatalogItem()");
 
-		ProviderContext ctx = provider.getContext();
+		final ProviderContext ctx = provider.getContext();
 		VirtualMachine server = null;
-
-		name = validateName(name);
-		if( description.length() > 100 ) {
-			description = description.substring(0, 100);
-		}
-		if( inVlanId == null ) {
-			for( VLAN n : provider.getNetworkServices().getVlanSupport().listVlans() ) {
-				inVlanId = n.getProviderVlanId();
-				break;
-			}
+		String vlanId = inVlanId;
+		if( vlanId == null ) {
+			vlanId = getFirstVlan();
 		}
 
-		//product string format cpu:ram
-		String cpuCount;
-		String ramSize;
-		String[] productIds = productString.split(":");
-		if (productIds.length == 2) {
-			cpuCount = productIds[0];
-			ramSize = productIds[1];
-		}
-		else if (productIds.length == 3) {
-			cpuCount = productIds[0];
-			ramSize = productIds[1];
-			logger.warn("Provided disk size(s) will be ignored. Call alter vm to change disk sizes.");
-		}
-		else {
-			throw new InternalError("Invalid product id string");
-		}
+		VirtualMachineProduct product = parseProductString(productString);
 
 		Layout layout = getLayout(ctx.getRegionId());
-		String rowId = null;
-		String groupId = null;	
 		MachineImage catalogEntry = null;
 
 		String url = "/" + VIRTUAL_MACHINES + "/" + EnvironmentsAndComputePools.COMPUTE_POOLS + "/" + dataCenterId + "/action/importVirtualMachine";
@@ -1126,116 +1102,47 @@ public class VMSupport implements VirtualMachineSupport {
 		try {
 			docBuilder = docFactory.newDocumentBuilder();
 
-			// root element
 			Document doc = docBuilder.newDocument();
 			Element rootElement = doc.createElement("ImportVirtualMachine");
-			rootElement.setAttribute(Terremark.NAME, name);
 
-			Element processorCount = doc.createElement("ProcessorCount");
-			processorCount.appendChild(doc.createTextNode(cpuCount));
-			rootElement.appendChild(processorCount);
-
-			Element memory = doc.createElement("Memory");
-			Element unit = doc.createElement("Unit");
-			Element value = doc.createElement("Value");
-			unit.appendChild(doc.createTextNode("MB"));
-			value.appendChild(doc.createTextNode(ramSize));
-			memory.appendChild(unit);
-			memory.appendChild(value);
-			rootElement.appendChild(memory);
-
-			Element layoutElement = doc.createElement("Layout");
-			if (layout.contains(ROW_NAME, GROUP_NAME)){
-				Row row = layout.getRowId(ROW_NAME, GROUP_NAME);
-				groupId = row.getGroupId(GROUP_NAME);
-				Element group = doc.createElement(GROUP_TAG);
-				group.setAttribute(Terremark.HREF, Terremark.DEFAULT_URI_PATH + "/" + LAYOUT_GROUPS + "/" + groupId);
-				group.setAttribute(Terremark.TYPE, GROUP_TYPE);
-				layoutElement.appendChild(group);
-
-			}
-			else if (layout.contains(ROW_NAME)){
-				rowId = layout.getRowId(ROW_NAME).getId();
-				Element row = doc.createElement(ROW_TAG);
-				row.setAttribute(Terremark.HREF, Terremark.DEFAULT_URI_PATH + "/" + LAYOUT_ROWS + "/" + rowId);
-				row.setAttribute(Terremark.TYPE, ROW_TYPE);
-				Element newGroup = doc.createElement("NewGroup");
-				newGroup.appendChild(doc.createTextNode(GROUP_NAME));
-				layoutElement.appendChild(row);
-				layoutElement.appendChild(newGroup);
-			}
-			else {
-				Element newRow = doc.createElement("NewRow");
-				Element newGroup = doc.createElement("NewGroup");
-				newRow.appendChild(doc.createTextNode(ROW_NAME));
-				newGroup.appendChild(doc.createTextNode(GROUP_NAME));
-				layoutElement.appendChild(newRow);
-				layoutElement.appendChild(newGroup);
-			}
-			rootElement.appendChild(layoutElement);
-
-			Element descriptionElement = doc.createElement("Description");
-			descriptionElement.appendChild(doc.createTextNode(description));
-			rootElement.appendChild(descriptionElement);
-
-			Element tagsElement = doc.createElement("Tags");
-
-			//Add a tag with the image ID so we will know what image the server was launched from when we discover it
-			Element templateTagElement = doc.createElement("Tag");
-			String templateHref = "/" + Template.TEMPLATES + "/" + catalogId + "/" + EnvironmentsAndComputePools.COMPUTE_POOLS + "/" + dataCenterId;
-			templateTagElement.appendChild(doc.createTextNode(templateHref));
-			tagsElement.appendChild(templateTagElement);
-			rootElement.appendChild(tagsElement);
-
-			for(String key: tags.keySet()){
-				Element tagElement = doc.createElement("Tag");
-				String tagValue = tags.get(key).toString();
-				String tag = key + "=" + tagValue;
-				tag = Terremark.removeCommas(tag);
-				tagElement.appendChild(doc.createTextNode(tag));
-				tagsElement.appendChild(tagElement);
-				rootElement.appendChild(tagsElement);
-			}
+			addNameAttribute(rootElement, name);
+			addVmHardwareElements(doc, rootElement, product);
+			addLayoutElements(doc, rootElement, layout);
+			addDescriptionElement(doc, rootElement, description);
+			final String catalogHref = "/" + Terremark.ADMIN + "/" + Template.CATALOG + "/" + catalogId;
+			addTagsElement(doc, rootElement, catalogHref, tags);
 
 			catalogEntry = provider.getComputeServices().getImageSupport().getImage(catalogId+"::"+Template.ImageType.CATALOG_ENTRY.name());
 
 			if (catalogEntry == null) {
-				throw new CloudException("Failed to find machine image " + catalogId);
+				throw new CloudException("launchFromCatalogItem(): Failed to find machine image " + catalogId);
 			}
 
 			Element catalogEntryElement = doc.createElement("CatalogEntry");
-			catalogEntryElement.setAttribute(Terremark.HREF, Terremark.DEFAULT_URI_PATH + "/" + Terremark.ADMIN + "/" + Template.CATALOG + "/" + catalogId);
+			catalogEntryElement.setAttribute(Terremark.HREF, Terremark.DEFAULT_URI_PATH + catalogHref);
 			rootElement.appendChild(catalogEntryElement);
-
-			VLAN network = provider.getNetworkServices().getVlanSupport().getVlan(inVlanId);
 
 			Element networkMappingsElement = doc.createElement("NetworkMappings");
 
 			int networkMappingCount = 0;
 			try {
 				networkMappingCount = Integer.parseInt((String)catalogEntry.getTag("NetworkMappingCount"));
-				logger.debug("NetworkMappingCount = " + networkMappingCount);
+				logger.debug("launchFromCatalogItem(): NetworkMappingCount = " + networkMappingCount);
 			}
 			catch (NumberFormatException e) {
-				throw new InternalException("Problem parsing NetworkMappingCount tag from catalog item.");
+				throw new InternalException("launchFromCatalogItem(): Problem parsing NetworkMappingCount tag from catalog item.");
 			}
 
 			for (int i=0; i<networkMappingCount; i++) {
 				String nmName = (String)catalogEntry.getTag(Template.NETWORK_MAPPING_NAME + "-" + i);
-				logger.debug("Adding NetworkMappring for " + nmName);
+				logger.debug("launchFromCatalogItem(): Adding NetworkMappring for " + nmName);
 				Element networkMappingElement = doc.createElement("NetworkMapping");
 				networkMappingElement.setAttribute(Terremark.NAME, nmName);
 
-				Element networkElement = doc.createElement(TerremarkNetworkSupport.NETWORK_TAG);
-				networkElement.setAttribute(Terremark.HREF, Terremark.DEFAULT_URI_PATH + "/" + TerremarkNetworkSupport.NETWORKS + "/" + inVlanId);
-				networkElement.setAttribute(Terremark.NAME, network.getName());
-				networkElement.setAttribute(Terremark.TYPE, TerremarkNetworkSupport.NETWORK_TYPE);
-				networkMappingElement.appendChild(networkElement);
+				addNetworkElement(doc, networkMappingElement, vlanId);
 
 				networkMappingsElement.appendChild(networkMappingElement);
 			}
-
-
 
 			rootElement.appendChild(networkMappingsElement);
 
@@ -1247,9 +1154,19 @@ public class VMSupport implements VirtualMachineSupport {
 			body = stw.toString();
 
 		} catch (ParserConfigurationException e) {
-			e.printStackTrace();
+			if (logger.isDebugEnabled()) {
+				logger.warn("launchFromCatalogItem(): Error creating a new instance of a DocumentBuilder", e);
+			}
+			else {
+				logger.warn("launchFromCatalogItem(): Error creating a new instance of a DocumentBuilder");
+			}
 		} catch (TransformerException e) {
-			e.printStackTrace();
+			if (logger.isDebugEnabled()) {
+				logger.warn("launchFromCatalogItem(): Error transforming the xml", e);
+			}
+			else {
+				logger.warn("launchFromCatalogItem(): Error transforming the xml");
+			}
 		}
 
 		TerremarkMethod method = new TerremarkMethod(provider, HttpMethodName.POST, url, null, body);
@@ -1265,64 +1182,61 @@ public class VMSupport implements VirtualMachineSupport {
 		if (nics != null) {
 			for (NICConfig nicConfig : nics) {
 				NetworkInterface nic = provider.getNetworkServices().getVlanSupport().getNetworkInterface(nicConfig.nicId);
-				String vlanId = nic.getProviderVlanId();
-				if (networkMap.containsKey(vlanId)) {
-					List<String> networkIps = networkMap.get(vlanId);
+				String nicVlanId = nic.getProviderVlanId();
+				if (networkMap.containsKey(nicVlanId)) {
+					List<String> networkIps = networkMap.get(nicVlanId);
 					for (RawAddress address : nic.getIpAddresses()) {
 						networkIps.add(address.getIpAddress());
 					}
-					networkMap.put(vlanId, networkIps);
+					networkMap.put(nicVlanId, networkIps);
 				}
 				else {
 					List<String> networkIps = new ArrayList<String>();
 					for (RawAddress address : nic.getIpAddresses()) {
 						networkIps.add(address.getIpAddress());
 					}
-					networkMap.put(vlanId, networkIps);
+					networkMap.put(nicVlanId, networkIps);
 				}
 			}
 		}
 		else {
-			/*
-			IPVersion version;
-			if (inVlanId.contains("ipv6")) {
-				version = IPVersion.IPV6;
-			}
-			else {
-				version = IPVersion.IPV4;
-			}
-			String availableIpAddressId = provider.getNetworkServices().getIpAddressSupport().requestForVLAN(version, inVlanId);
-			 */
-			String availableIpAddress = provider.getNetworkServices().getIpAddressSupport().getUnreservedAvailablePrivateIp(inVlanId);
+			String availableIpAddress = provider.getNetworkServices().getIpAddressSupport().getUnreservedAvailablePrivateIp(vlanId);
 			if (availableIpAddress == null) {
 				throw new CloudException("Failed to find an available private ip");
 			}
 			else {
-				//String availableIpAddress = provider.getNetworkServices().getIpAddressSupport().getIpAddress(availableIpAddressId).getRawAddress().getIpAddress();
 				List<String> networkIps = new ArrayList<String>();
 				networkIps.add(availableIpAddress);
-				networkMap.put(inVlanId, networkIps);
+				networkMap.put(vlanId, networkIps);
 			}
 		}
 
 		assignIpAddresses(vmId, networkMap);
 
 		logger.debug("launchFromCatalogItem(): getting virtual machine " + vmId);
-		server = getVirtualMachine(vmId);	
+		server = getVirtualMachine(vmId);
+		final String serverId = server.getProviderVirtualMachineId();
 
-		long waitTime = 0;
-		while (server.getCurrentState().equals(VmState.PENDING) && waitTime < DEFAULT_TIMEOUT) {
-			try {
-				Thread.sleep(DEFAULT_SLEEP);
-				waitTime += DEFAULT_SLEEP;
-				server = getVirtualMachine(vmId);
-				if (server.getCurrentState().equals(VmState.TERMINATED)) {
-					break;
-				}
-			} catch (InterruptedException e) {
-				e.printStackTrace();
-			}
-		}
+		Thread t = new Thread() {
+            public void run() {
+                provider.hold();
+                try {
+                    try {
+                    	waitForCatalogTask(serverId);
+                    }
+                    catch( Throwable t ) {
+                        logger.error("launchFromCatalogItem(): Failed while polling launch task for server " + serverId + ": " + t.getMessage());
+                        t.printStackTrace();
+                    }
+                }
+                finally {
+                    provider.release();
+                }
+            }
+        };
+        t.setName("Wait for Terremark Catalog Item Launch " + server.getProviderVirtualMachineId());
+        t.setDaemon(true);
+        t.start();
 
 		if (server.getCurrentState().equals(VmState.STOPPED)) {
 			start(vmId);
@@ -1332,43 +1246,136 @@ public class VMSupport implements VirtualMachineSupport {
 		logger.trace("exit() - launchFromCatalogItem()");
 		return server;
 	}
+	
+	private void waitForCatalogTask(String serverId) throws InternalException, CloudException {
+		final long catalogImportTimeout = CalendarWrapper.HOUR * 28;
+		long waitTime = 0;
+		long sleepTime;
+		VirtualMachine server = getVirtualMachine(serverId);
+		while (server.getCurrentState().equals(VmState.PENDING) && waitTime < catalogImportTimeout) {
+			try {
+				if (waitTime < DEFAULT_TIMEOUT) {
+					sleepTime = DEFAULT_SLEEP;
+				}
+				else {
+					sleepTime = CalendarWrapper.MINUTE * 10;
+				}
+				Thread.sleep(sleepTime);
+				waitTime += sleepTime;
+				server = getVirtualMachine(serverId);
+				if (server.getCurrentState().equals(VmState.TERMINATED)) {
+					break;
+				}
+			} catch (InterruptedException e) {
+				if (logger.isDebugEnabled()) {
+					logger.warn("waitForCatalogTask(): Thread was interrupted waiting for server to leave pending state.", e);
+				}
+				else {
+					logger.warn("waitForCatalogTask(): Thread was interrupted waiting for server to leave pending state.");
+				}
+			}
+		}
+	}
+
+	private void addNetworkElement(Document doc, Element networkParentElement, String vlanId) throws CloudException, InternalException {
+		VLAN network = provider.getNetworkServices().getVlanSupport().getVlan(vlanId);
+		Element networkElement = doc.createElement(TerremarkNetworkSupport.NETWORK_TAG);
+		networkElement.setAttribute(Terremark.HREF, Terremark.DEFAULT_URI_PATH + "/" + TerremarkNetworkSupport.NETWORKS + "/" + vlanId);
+		networkElement.setAttribute(Terremark.NAME, network.getName());
+		networkElement.setAttribute(Terremark.TYPE, TerremarkNetworkSupport.NETWORK_TYPE);
+		networkParentElement.appendChild(networkElement);
+	}
+
+	private void addTagsElement(Document doc, Element rootElement, String imageId, Map<String, Object> tags) {
+		Element tagsElement = doc.createElement("Tags");
+
+		//Add a tag with the image ID so we will know what image the server was launched from when we discover it
+		Element templateTagElement = doc.createElement("Tag");
+		templateTagElement.appendChild(doc.createTextNode(imageId));
+		tagsElement.appendChild(templateTagElement);
+		rootElement.appendChild(tagsElement);
+
+		for(String key: tags.keySet()){
+			Element tagElement = doc.createElement("Tag");
+			String tagValue = tags.get(key).toString();
+			String tag = key + "=" + tagValue;
+			tag = Terremark.removeCommas(tag);
+			tagElement.appendChild(doc.createTextNode(tag));
+			tagsElement.appendChild(tagElement);
+			rootElement.appendChild(tagsElement);
+		}
+	}
+
+	private void addDescriptionElement(Document doc, Element rootElement, String description) {
+		if( description.length() > 100 ) {
+			description = description.substring(0, 100);
+		}
+		Element descriptionElement = doc.createElement("Description");
+		descriptionElement.appendChild(doc.createTextNode(description));
+		rootElement.appendChild(descriptionElement);
+	}
+
+	private void addLayoutElements(Document doc, Element rootElement, Layout layout) {
+		Element layoutElement = doc.createElement("Layout");
+		if (layout.contains(ROW_NAME, GROUP_NAME)){
+			Row row = layout.getRowId(ROW_NAME, GROUP_NAME);
+			String groupId = row.getGroupId(GROUP_NAME);
+			Element group = doc.createElement(GROUP_TAG);
+			group.setAttribute(Terremark.HREF, Terremark.DEFAULT_URI_PATH + "/" + LAYOUT_GROUPS + "/" + groupId);
+			group.setAttribute(Terremark.TYPE, GROUP_TYPE);
+			layoutElement.appendChild(group);
+
+		}
+		else if (layout.contains(ROW_NAME)){
+			String rowId = layout.getRowId(ROW_NAME).getId();
+			Element row = doc.createElement(ROW_TAG);
+			row.setAttribute(Terremark.HREF, Terremark.DEFAULT_URI_PATH + "/" + LAYOUT_ROWS + "/" + rowId);
+			row.setAttribute(Terremark.TYPE, ROW_TYPE);
+			Element newGroup = doc.createElement("NewGroup");
+			newGroup.appendChild(doc.createTextNode(GROUP_NAME));
+			layoutElement.appendChild(row);
+			layoutElement.appendChild(newGroup);
+		}
+		else {
+			Element newRow = doc.createElement("NewRow");
+			Element newGroup = doc.createElement("NewGroup");
+			newRow.appendChild(doc.createTextNode(ROW_NAME));
+			newGroup.appendChild(doc.createTextNode(GROUP_NAME));
+			layoutElement.appendChild(newRow);
+			layoutElement.appendChild(newGroup);
+		}
+		rootElement.appendChild(layoutElement);		
+	}
+
+	private void addVmHardwareElements(Document doc, Element rootElement, VirtualMachineProduct product) {
+		Element processorCount = doc.createElement("ProcessorCount");
+		String cpuCount = Integer.toString(product.getCpuCount());
+		processorCount.appendChild(doc.createTextNode(cpuCount));
+		rootElement.appendChild(processorCount);
+
+		Element memory = doc.createElement("Memory");
+		Element unit = doc.createElement("Unit");
+		Element value = doc.createElement("Value");
+		unit.appendChild(doc.createTextNode("MB"));
+		String ramInMB = Integer.toString(product.getRamSize().intValue());
+		value.appendChild(doc.createTextNode(ramInMB));
+		memory.appendChild(unit);
+		memory.appendChild(value);
+		rootElement.appendChild(memory);
+	}
 
 	private @Nonnull VirtualMachine launchFromTemplate(@Nonnull String templateId, @Nonnull String productString, @Nonnull String dataCenterId, @Nonnull String name, @Nonnull String description, @Nullable String withKeypairId, @Nullable String withPassword, @Nullable String inVlanId, @Nullable NICConfig[] nics, @Nullable Map<String, Object> tags) throws InternalException, CloudException {
 		logger.trace("enter() - launchFromTemplate()");
 
 		ProviderContext ctx = provider.getContext();
 		VirtualMachine server = null;
-		name = validateName(name);
-		if( description.length() > 100 ) {
-			description = description.substring(0, 100);
-		}
 		if( inVlanId == null ) {
-			for( VLAN n : provider.getNetworkServices().getVlanSupport().listVlans() ) {
-				inVlanId = n.getProviderVlanId();
-				break;
-			}
+			inVlanId = getFirstVlan();
 		}
 
-		//product string format cpu:ram
-		String cpuCount;
-		String ramSize;
-		String[] productIds = productString.split(":");
-		if (productIds.length == 2) {
-			cpuCount = productIds[0];
-			ramSize = productIds[1];
-		}
-		else if (productIds.length == 3) {
-			cpuCount = productIds[0];
-			ramSize = productIds[1];
-			logger.warn("Provided disk size(s) will be ignored. Call alter vm to change disk sizes.");
-		}
-		else {
-			throw new InternalError("Invalid product id string");
-		}
+		VirtualMachineProduct product = parseProductString(productString);
 
-		Layout layout = getLayout(ctx.getRegionId());
-		String rowId = null;
-		String groupId = null;	
+		Layout layout = getLayout(ctx.getRegionId());	
 		MachineImage template = null;
 
 		String url = "/" + VIRTUAL_MACHINES + "/" + EnvironmentsAndComputePools.COMPUTE_POOLS + "/" + dataCenterId + "/action/createVirtualMachine";
@@ -1379,63 +1386,18 @@ public class VMSupport implements VirtualMachineSupport {
 		try {
 			docBuilder = docFactory.newDocumentBuilder();
 
-			// root element
 			Document doc = docBuilder.newDocument();
 			Element rootElement = doc.createElement("CreateVirtualMachine");
-			rootElement.setAttribute(Terremark.NAME, name);
-
-			Element processorCount = doc.createElement("ProcessorCount");
-			processorCount.appendChild(doc.createTextNode(cpuCount));
-			rootElement.appendChild(processorCount);
-
-			Element memory = doc.createElement("Memory");
-			Element unit = doc.createElement("Unit");
-			Element value = doc.createElement("Value");
-			unit.appendChild(doc.createTextNode("MB"));
-			value.appendChild(doc.createTextNode(ramSize));
-			memory.appendChild(unit);
-			memory.appendChild(value);
-			rootElement.appendChild(memory);
-
-			Element layoutElement = doc.createElement("Layout");
-			if (layout.contains(ROW_NAME, GROUP_NAME)){
-				Row row = layout.getRowId(ROW_NAME, GROUP_NAME);
-				groupId = row.getGroupId(GROUP_NAME);
-				Element group = doc.createElement(GROUP_TAG);
-				group.setAttribute(Terremark.HREF, Terremark.DEFAULT_URI_PATH + "/" + LAYOUT_GROUPS + "/" + groupId);
-				group.setAttribute(Terremark.TYPE, GROUP_TYPE);
-				layoutElement.appendChild(group);
-
-			}
-			else if (layout.contains(ROW_NAME)){
-				rowId = layout.getRowId(ROW_NAME).getId();
-				Element row = doc.createElement(ROW_TAG);
-				row.setAttribute(Terremark.HREF, Terremark.DEFAULT_URI_PATH + "/" + LAYOUT_ROWS + "/" + rowId);
-				row.setAttribute(Terremark.TYPE, ROW_TYPE);
-				Element newGroup = doc.createElement("NewGroup");
-				newGroup.appendChild(doc.createTextNode(GROUP_NAME));
-				layoutElement.appendChild(row);
-				layoutElement.appendChild(newGroup);
-			}
-			else {
-				Element newRow = doc.createElement("NewRow");
-				Element newGroup = doc.createElement("NewGroup");
-				newRow.appendChild(doc.createTextNode(ROW_NAME));
-				newGroup.appendChild(doc.createTextNode(GROUP_NAME));
-				layoutElement.appendChild(newRow);
-				layoutElement.appendChild(newGroup);
-			}
-			rootElement.appendChild(layoutElement);
-
-			Element descriptionElement = doc.createElement("Description");
-			descriptionElement.appendChild(doc.createTextNode(description));
-			rootElement.appendChild(descriptionElement);
-
+			addNameAttribute(rootElement, name);
+			addVmHardwareElements(doc, rootElement, product);
+			addLayoutElements(doc, rootElement, layout);
+			addDescriptionElement(doc, rootElement, description);
+			String templateHref = "/" + Template.TEMPLATES + "/" + templateId + "/" + EnvironmentsAndComputePools.COMPUTE_POOLS + "/" + dataCenterId;
+			
 			Element tagsElement = doc.createElement("Tags");
 
 			//Add a tag with the image ID so we will know what image the server was launched from when we discover it
 			Element templateTagElement = doc.createElement("Tag");
-			String templateHref = "/" + Template.TEMPLATES + "/" + templateId + "/" + EnvironmentsAndComputePools.COMPUTE_POOLS + "/" + dataCenterId;
 			templateTagElement.appendChild(doc.createTextNode(templateHref));
 			tagsElement.appendChild(templateTagElement);
 			rootElement.appendChild(tagsElement);
@@ -1524,14 +1486,9 @@ public class VMSupport implements VirtualMachineSupport {
 						logger.warn("Only one ip address of each version can be specified per network interface. Using the first ip in the array.");
 					}
 					if (dualStack) {
-						VLAN network = provider.getNetworkServices().getVlanSupport().getVlan(nic.getProviderVlanId());
 						Element networkAdapterElement = doc.createElement("NetworkAdapter");
 
-						Element networkElement = doc.createElement(TerremarkNetworkSupport.NETWORK_TAG);
-						networkElement.setAttribute(Terremark.HREF, Terremark.DEFAULT_URI_PATH + "/" + TerremarkNetworkSupport.NETWORKS + "/" + nic.getProviderVlanId());
-						networkElement.setAttribute(Terremark.NAME, network.getName());
-						networkElement.setAttribute(Terremark.TYPE, TerremarkNetworkSupport.NETWORK_TYPE);
-						networkAdapterElement.appendChild(networkElement);
+						addNetworkElement(doc, networkAdapterElement, nic.getProviderVlanId());
 
 						String ipv4Address = "";
 						String ipv6Address = "";
@@ -1555,14 +1512,8 @@ public class VMSupport implements VirtualMachineSupport {
 						networkAdapterSettingsElement.appendChild(networkAdapterElement);
 					}
 					else {
-						VLAN network = provider.getNetworkServices().getVlanSupport().getVlan(nic.getProviderVlanId());
 						Element networkAdapterElement = doc.createElement("NetworkAdapter");
-
-						Element networkElement = doc.createElement(TerremarkNetworkSupport.NETWORK_TAG);
-						networkElement.setAttribute(Terremark.HREF, Terremark.DEFAULT_URI_PATH + "/" + TerremarkNetworkSupport.NETWORKS + "/" + nic.getProviderVlanId());
-						networkElement.setAttribute(Terremark.NAME, network.getName());
-						networkElement.setAttribute(Terremark.TYPE, TerremarkNetworkSupport.NETWORK_TYPE);
-						networkAdapterElement.appendChild(networkElement);
+						addNetworkElement(doc, networkAdapterElement, nic.getProviderVlanId());
 
 						RawAddress address = nicAddresses[0];
 						if (address.getVersion().equals(IPVersion.IPV4)) {
@@ -1614,14 +1565,8 @@ public class VMSupport implements VirtualMachineSupport {
 						logger.warn("Only one ip address of each version can be specified per network interface. Using the first ip in the array.");
 					}
 					if (dualStack) {
-						VLAN network = provider.getNetworkServices().getVlanSupport().getVlan(nic.getProviderVlanId());
 						Element networkAdapterElement = doc.createElement("NetworkAdapter");
-
-						Element networkElement = doc.createElement(TerremarkNetworkSupport.NETWORK_TAG);
-						networkElement.setAttribute(Terremark.HREF, Terremark.DEFAULT_URI_PATH + "/" + TerremarkNetworkSupport.NETWORKS + "/" + nic.getProviderVlanId());
-						networkElement.setAttribute(Terremark.NAME, network.getName());
-						networkElement.setAttribute(Terremark.TYPE, TerremarkNetworkSupport.NETWORK_TYPE);
-						networkAdapterElement.appendChild(networkElement);
+						addNetworkElement(doc, networkAdapterElement, nic.getProviderVlanId());
 
 						String ipv4Address = "";
 						String ipv6Address = "";
@@ -1645,14 +1590,8 @@ public class VMSupport implements VirtualMachineSupport {
 						networkAdapterSettingsElement.appendChild(networkAdapterElement);
 					}
 					else {
-						VLAN network = provider.getNetworkServices().getVlanSupport().getVlan(nic.getProviderVlanId());
 						Element networkAdapterElement = doc.createElement("NetworkAdapter");
-
-						Element networkElement = doc.createElement(TerremarkNetworkSupport.NETWORK_TAG);
-						networkElement.setAttribute(Terremark.HREF, Terremark.DEFAULT_URI_PATH + "/" + TerremarkNetworkSupport.NETWORKS + "/" + nic.getProviderVlanId());
-						networkElement.setAttribute(Terremark.NAME, network.getName());
-						networkElement.setAttribute(Terremark.TYPE, TerremarkNetworkSupport.NETWORK_TYPE);
-						networkAdapterElement.appendChild(networkElement);
+						addNetworkElement(doc, networkAdapterElement, nic.getProviderVlanId());
 
 						RawAddress address = nicAddresses[0];
 						if (address.getVersion().equals(IPVersion.IPV4)) {
@@ -1721,9 +1660,19 @@ public class VMSupport implements VirtualMachineSupport {
 			body = stw.toString();
 
 		} catch (ParserConfigurationException e) {
-			e.printStackTrace();
+			if (logger.isDebugEnabled()) {
+				logger.warn("launchFromTemplate(): Error creating a new instance of a DocumentBuilder", e);
+			}
+			else {
+				logger.warn("launchFromTemplate(): Error creating a new instance of a DocumentBuilder");
+			}
 		} catch (TransformerException e) {
-			e.printStackTrace();
+			if (logger.isDebugEnabled()) {
+				logger.warn("launchFromTemplate(): Error transforming the xml", e);
+			}
+			else {
+				logger.warn("launchFromTemplate(): Error transforming the xml");
+			}
 		}
 
 		TerremarkMethod method = new TerremarkMethod(provider, HttpMethodName.POST, url, null, body);
@@ -1734,7 +1683,7 @@ public class VMSupport implements VirtualMachineSupport {
 		String taskHref = Terremark.getTaskHref(responseDoc, CREATE_SERVER_OPERATION);
 		provider.waitForTask(taskHref, DEFAULT_SLEEP, DEFAULT_TIMEOUT);
 
-		logger.debug("launch(): getting virtual machine " + vmId);
+		logger.debug("launchFromTemplate(): getting virtual machine " + vmId);
 		server = getVirtualMachine(vmId);	
 
 		if (server.getCurrentState().equals(VmState.STOPPED)) {
@@ -1749,8 +1698,39 @@ public class VMSupport implements VirtualMachineSupport {
 		else {
 			server.setRootUser(DEFAULT_ROOT_USER);
 		}
-		logger.trace("exit() - launchFromTemplate()");
+		logger.trace("exit - launchFromTemplate()");
 		return server;
+	}
+
+	private void addNameAttribute(Element rootElement, String name) {
+		name = validateName(name);
+		rootElement.setAttribute(Terremark.NAME, name);
+	}
+
+	private VirtualMachineProduct parseProductString(String productString) {
+		VirtualMachineProduct product = new VirtualMachineProduct();
+		//product string format cpu:ram
+		String[] productIds = productString.split(":");
+		if (productIds.length == 2 || productIds.length == 3) {
+			product.setCpuCount(Integer.parseInt(productIds[0]));
+			product.setRamSize(new Storage<Megabyte>(Integer.parseInt(productIds[1]), Storage.MEGABYTE));
+			if (productIds.length == 3) {
+				logger.warn("Provided disk size(s) will be ignored. Call alter vm to change disk sizes.");
+			}
+		}
+		else {
+			throw new InternalError("Invalid product id string");
+		}
+		return product;
+	}
+
+	private String getFirstVlan() throws CloudException, InternalException {
+		String inVlanId = null;
+		for( VLAN n : provider.getNetworkServices().getVlanSupport().listVlans() ) {
+			inVlanId = n.getProviderVlanId();
+			break;
+		}
+		return inVlanId;
 	}
 
 	/**
@@ -2195,7 +2175,7 @@ public class VMSupport implements VirtualMachineSupport {
 		vm.setRootPassword(null);
 
 		NodeList vmChildNodes = vmNode.getChildNodes();
-		String templateId = null;
+		String imageId = null;
 		String osName = null;
 		String status = null;
 		boolean poweredOn = false;
@@ -2294,8 +2274,13 @@ public class VMSupport implements VirtualMachineSupport {
 				for (int j=0; j < tags.getLength(); j++){
 					String tagValue = tags.item(j).getTextContent();
 					if (Terremark.getTemplateIdFromHref(tagValue) != null){
-						templateId = Terremark.getTemplateIdFromHref(tagValue);
-						vm.setProviderMachineImageId(templateId);
+						imageId = Terremark.getTemplateIdFromHref(tagValue);
+						vm.setProviderMachineImageId(imageId);
+						logger.debug("toVirtualMachine(): ID = " + vm.getProviderVirtualMachineId() + " Machine Image ID = " + vm.getProviderMachineImageId());
+					}
+					else if (Terremark.getCatalogIdFromHref(tagValue) != null){
+						imageId = Terremark.getCatalogIdFromHref(tagValue);
+						vm.setProviderMachineImageId(imageId);
 						logger.debug("toVirtualMachine(): ID = " + vm.getProviderVirtualMachineId() + " Machine Image ID = " + vm.getProviderMachineImageId());
 					}
 					else {
