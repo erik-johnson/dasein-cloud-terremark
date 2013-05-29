@@ -11,7 +11,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>org.dasein</groupId>
 	<artifactId>dasein-cloud-terremark</artifactId>
-	<version>2013.02.4</version>
+	<version>2013.02.5-SNAPSHOT</version>
 	<packaging>jar</packaging>
 
 	<name>dasein-cloud-terremark</name>
