@@ -29,8 +29,8 @@
 		</license>
 	</licenses>
 	<organization>
-		<name>Enstratius, Inc</name>
-		<url>http://www.enstratius.com</url>
+		<name>Dell, Inc</name>
+		<url>http://software.dell.com</url>
 	</organization>
 	<scm>
 		<connection>scm:git:git://github.com/greese/dasein-cloud-terremark.git</connection>
@@ -160,8 +160,8 @@
 						<exclude>**/LICENSE-APACHE.txt</exclude>
 					</excludes>
 					<properties>
-						<year>2009-2012</year>
-						<copyrightHolder>enStratus Networks Inc</copyrightHolder>
+						<year>2009-2013</year>
+						<copyrightHolder>Dell, Inc.</copyrightHolder>
 					</properties>
 				</configuration>
 			</plugin>
@@ -248,7 +248,7 @@
 						</property>
 					</systemProperties>
 					<includes>
-						<!-- <include>**/TerremarkTestSuite.java</include> -->
+						<include>**/TestSuite.java</include>
 					</includes>
 				</configuration>
 			</plugin>
@@ -311,24 +311,24 @@
 		<developer>
 			<name>Erik Johnson</name>
 			<id>erik-johnson</id>
-			<email>erik.johnson -at- enstratus -dot- com</email>
-			<organization>enStratus</organization>
+			<email>erik_j -at- dell -dot- com</email>
+			<organization>Dell</organization>
 			<roles>
 				<role>Java Developer</role>
 			</roles>
-			<url>http://www.enstratus.com</url>
+			<url>http://software.dell.com</url>
 			<timezone>-6</timezone>
 		</developer>
 		<developer>
 			<name>George Reese</name>
 			<id>greese</id>
-			<email>george.reese -at- enstratus -dot- com</email>
-			<organization>enStratus</organization>
+			<email>george_reese -at- dell -dot- com</email>
+			<organization>Dell</organization>
 			<roles>
 				<role>Java Developer</role>
 				<role>PMC</role>
 			</roles>
-			<url>http://www.enstratus.com</url>
+			<url>http://software.dell.com</url>
 			<timezone>-6</timezone>
 		</developer>
 	</developers>
