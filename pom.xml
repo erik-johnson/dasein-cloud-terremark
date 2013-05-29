@@ -1,6 +1,4 @@
-<project
-	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd"
-	xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<!-- Copyright (C) 2008-2012 enStratus Networks Inc (http://www.enstratus.com) 
 		==================================================================== Licensed 
 		under the Apache License, Version 2.0 (the "License"); you may not use this 
@@ -13,12 +11,14 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>org.dasein</groupId>
 	<artifactId>dasein-cloud-terremark</artifactId>
-	<version>2013.02.3-SNAPSHOT</version>
+	<version>2013.02.5-SNAPSHOT</version>
 	<packaging>jar</packaging>
+
 	<name>dasein-cloud-terremark</name>
-	<description>Implementation of the Dasein Cloud API for Terremark Enterprise Cloud.</description>
+	<description>Implementation of the Dasein Cloud API for Terremark Enterprise Cloud</description>
 	<inceptionYear>2012</inceptionYear>
-	<url>http://github.com/erik-johnson/dasein-cloud-terremark</url>
+	<url>http://github.com/greese/dasein-cloud-terremark</url>
+
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 	</properties>
@@ -29,19 +29,21 @@
 		</license>
 	</licenses>
 	<organization>
-		<name>Enstratius, Inc</name>
-		<url>http://www.enstratius.com</url>
+		<name>Dell, Inc</name>
+		<url>http://software.dell.com</url>
 	</organization>
 	<scm>
-		<connection>scm:git:git://github.com/erik-johnson/dasein-cloud-terremark.git</connection>
-		<developerConnection>scm:git:ssh://git@github.com/erik-johnson/dasein-cloud-terremark.git</developerConnection>
-		<url>http://github.com/erik-johnson/dasein-cloud-terremark</url>
+		<connection>scm:git:git://github.com/greese/dasein-cloud-terremark.git</connection>
+		<developerConnection>scm:git:ssh://git@github.com/greese/dasein-cloud-terremark.git</developerConnection>
+		<url>http://github.com/greese/dasein-cloud-terremark</url>
 	</scm>
+
 	<parent>
 		<groupId>org.sonatype.oss</groupId>
 		<artifactId>oss-parent</artifactId>
 		<version>5</version>
 	</parent>
+
 	<dependencies>
 		<!-- Compile -->
 		<dependency>
@@ -82,6 +84,7 @@
 			<version>20090211</version>
 			<scope>compile</scope>
 		</dependency>
+
 		<!-- Test -->
 		<dependency>
 			<groupId>org.dasein</groupId>
@@ -155,8 +158,8 @@
 						<exclude>**/LICENSE-APACHE.txt</exclude>
 					</excludes>
 					<properties>
-						<year>2009-2012</year>
-						<copyrightHolder>enStratus Networks Inc</copyrightHolder>
+						<year>2009-2013</year>
+						<copyrightHolder>Dell, Inc.</copyrightHolder>
 					</properties>
 				</configuration>
 			</plugin>
@@ -243,7 +246,7 @@
 						</property>
 					</systemProperties>
 					<includes>
-						<include>**/TerremarkTestSuite.java</include>
+						<!-- <include>**/TerremarkTestSuite.java</include> -->
 					</includes>
 				</configuration>
 			</plugin>
@@ -306,24 +309,24 @@
 		<developer>
 			<name>Erik Johnson</name>
 			<id>erik-johnson</id>
-			<email>erik.johnson -at- enstratus -dot- com</email>
-			<organization>enStratus</organization>
+			<email>erik_j -at- dell -dot- com</email>
+			<organization>Dell</organization>
 			<roles>
 				<role>Java Developer</role>
 			</roles>
-			<url>http://www.enstratus.com</url>
+			<url>http://software.del.com</url>
 			<timezone>-6</timezone>
 		</developer>
 		<developer>
 			<name>George Reese</name>
 			<id>greese</id>
-			<email>george.reese -at- enstratus -dot- com</email>
-			<organization>enStratus</organization>
+			<email>george_reese -at- dell -dot- com</email>
+			<organization>Dell</organization>
 			<roles>
 				<role>Java Developer</role>
 				<role>PMC</role>
 			</roles>
-			<url>http://www.enstratus.com</url>
+			<url>http://software.dell.com</url>
 			<timezone>-6</timezone>
 		</developer>
 	</developers>
