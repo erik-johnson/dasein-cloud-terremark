@@ -270,8 +270,14 @@ public class VMSupport implements VirtualMachineSupport {
 			rootElement.appendChild(memoryElement);
 
 			Element disksElement = doc.createElement("Disks");
+            Integer index=0;
 			for (String diskSize : diskSizes) {
 				Element diskElement = doc.createElement("Disk");
+
+                Element indexElement = doc.createElement("Index");
+                indexElement.appendChild(doc.createTextNode(index.toString()));
+                diskElement.appendChild(indexElement);
+
 				Element diskSizeElement = doc.createElement("Size");
 
 				Element diskUnitElement = doc.createElement("Unit");
@@ -283,6 +289,7 @@ public class VMSupport implements VirtualMachineSupport {
 
 				diskElement.appendChild(diskSizeElement);
 				disksElement.appendChild(diskElement);
+                index++;
 			}
 			rootElement.appendChild(disksElement);
 
