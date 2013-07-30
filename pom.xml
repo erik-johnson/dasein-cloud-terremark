@@ -245,9 +245,9 @@
 							<value>${test.shareAccount}</value>
 						</property>
 					</systemProperties>
-					<includes>
-						<!-- <include>**/TerremarkTestSuite.java</include> -->
-					</includes>
+					<excludes>
+						<exclude>**/TerremarkTestSuite.java</exclude>
+					</excludes>
 				</configuration>
 			</plugin>
 			<plugin>
