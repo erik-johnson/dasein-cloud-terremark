@@ -19,13 +19,7 @@
 
 package org.dasein.cloud.terremark;
 
-import junit.framework.Test;
+import org.dasein.cloud.test.GlobalTestSuite;
 
-import org.dasein.cloud.test.ComprehensiveTestSuite;
-import org.dasein.cloud.test.TestConfigurationException;
-
-public class TerremarkTestSuite  {
-    static public Test suite() throws TestConfigurationException {
-        return new ComprehensiveTestSuite(Terremark.class);
-    }
+public class TerremarkTestSuite extends GlobalTestSuite {
 }
