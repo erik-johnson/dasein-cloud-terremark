@@ -428,67 +428,6 @@ public class Template extends AbstractImageSupport {
 	}
 
 	/**
-<<<<<<< HEAD
-=======
-	 * Creates a machine image from a virtual machine. This method simply calls {@link #captureImageAsync(ImageCreateOptions, AsynchronousTask)}
-	 * using the task it returns to you.
-	 * @param vmId the unique ID of the virtual machine to be imaged
-	 * @param name the name to give the new image
-	 * @param description the description to give the new image
-	 * @return an asynchronous task for tracking the progress of the imaging
-	 * @throws CloudException an error occurred with the cloud provider
-	 * @throws InternalException an error occurred within the Dasein cloud implementation
-	 * @throws OperationNotSupportedException the cloud does not support custom image creation
-	 * @deprecated Use {@link #captureImage(ImageCreateOptions)} or {@link #captureImageAsync(ImageCreateOptions, AsynchronousTask)}
-	 */
-	@Override
-	public @Nonnull AsynchronousTask<String> imageVirtualMachine(String vmId, String name, String description) throws CloudException, InternalException {
-		VirtualMachine vm = provider.getComputeServices().getVirtualMachineSupport().getVirtualMachine(vmId);
-
-		if( vm == null ) {
-			throw new CloudException("No such virtual machine: " + vmId);
-		}
-		final AsynchronousTask<MachineImage> task = new AsynchronousTask<MachineImage>();
-		final AsynchronousTask<String> oldTask = new AsynchronousTask<String>();
-
-		captureImageAsync(ImageCreateOptions.getInstance(vm,  name, description), task);
-
-		Thread t = new Thread() {
-			public void run() {
-				final long startTime = System.currentTimeMillis();
-				while( (startTime + DEFAULT_TIMEOUT) > System.currentTimeMillis() ) {
-					try { Thread.sleep(15000L); }
-					catch( InterruptedException ignore ) { }
-					oldTask.setPercentComplete(task.getPercentComplete());
-
-					Throwable error = task.getTaskError();
-					MachineImage img = task.getResult();
-
-					if( error != null ) {
-						oldTask.complete(error);
-						return;
-					}
-					else if( img != null ) {
-						oldTask.completeWithResult(img.getProviderMachineImageId());
-						return;
-					}
-					else if( task.isComplete() ) {
-						oldTask.complete(new CloudException("Task completed without info"));
-						return;
-					}
-				}
-				oldTask.complete(new CloudException("Image creation task timed out"));
-			}
-		};
-
-		t.setDaemon(true);
-		t.start();
-
-		return oldTask;
-	}
-
-	/**
->>>>>>> 671275ae223ff86c68bf5d81ff0b333c4c05f944
 	 * Indicates whether or not the specified image is shared publicly. It should return false when public image sharing
 	 * simply isn't supported by the underlying cloud.
 	 * @param machineImageId the machine image being checked for public status

@@ -11,7 +11,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>org.dasein</groupId>
 	<artifactId>dasein-cloud-terremark</artifactId>
-	<version>2013.04-SNAPSHOT</version>
+	<version>2013.07-SNAPSHOT</version>
 	<packaging>jar</packaging>
 
 	<name>dasein-cloud-terremark</name>
@@ -49,7 +49,7 @@
 		<dependency>
 			<groupId>org.dasein</groupId>
 			<artifactId>dasein-cloud-core</artifactId>
-			<version>2013.04-SNAPSHOT</version>
+			<version>2013.07.0</version>
 			<scope>compile</scope>
 			<optional>false</optional>
 		</dependency>
@@ -91,7 +91,7 @@
 		<dependency>
 			<groupId>org.dasein</groupId>
 			<artifactId>dasein-cloud-test</artifactId>
-			<version>2013.04-SNAPSHOT</version>
+			<version>2013.07.1</version>
 			<scope>test</scope>
 			<optional>false</optional>
 		</dependency>

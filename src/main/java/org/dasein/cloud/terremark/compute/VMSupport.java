@@ -1933,6 +1933,11 @@ public class VMSupport extends AbstractVMSupport {
 		}
 	}
 
+    @Override
+    public void terminate(@Nonnull String vmId, String explanation)throws CloudException, InternalException{
+        terminate(vmId);
+    }
+
 	/**
 	 * Creates a VirtualMachine object from a virtual machine xml node
 	 * @param vmNode the xml node representing a virtual machine, identified by the tag VirtualMachine.
