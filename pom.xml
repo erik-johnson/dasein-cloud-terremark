@@ -11,7 +11,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>org.dasein</groupId>
 	<artifactId>dasein-cloud-terremark</artifactId>
-	<version>2013.02.3-SNAPSHOT</version>
+	<version>2013.07</version>
 	<packaging>jar</packaging>
 
 	<name>dasein-cloud-terremark</name>
@@ -29,8 +29,8 @@
 		</license>
 	</licenses>
 	<organization>
-		<name>enStratus Networks Inc</name>
-		<url>http://www.enstratus.com</url>
+		<name>Dell, Inc</name>
+		<url>http://software.dell.com</url>
 	</organization>
 	<scm>
 		<connection>scm:git:git://github.com/greese/dasein-cloud-terremark.git</connection>
@@ -49,14 +49,14 @@
 		<dependency>
 			<groupId>org.dasein</groupId>
 			<artifactId>dasein-cloud-core</artifactId>
-			<version>2013.02.1</version>
+			<version>2013.07.0</version>
 			<scope>compile</scope>
 			<optional>false</optional>
 		</dependency>
 		<dependency>
 			<groupId>org.dasein</groupId>
 			<artifactId>dasein-util</artifactId>
-			<version>2012.08</version>
+			<version>2013.02</version>
 			<scope>compile</scope>
 			<optional>false</optional>
 		</dependency>
@@ -73,23 +73,25 @@
 			<optional>false</optional>
 		</dependency>
 		<dependency>
-			<groupId>javax.servlet</groupId>
-			<artifactId>servlet-api</artifactId>
-			<version>2.5</version>
-			<scope>compile</scope>
-		</dependency>
-		<dependency>
 			<groupId>org.json</groupId>
 			<artifactId>json</artifactId>
 			<version>20090211</version>
 			<scope>compile</scope>
 		</dependency>
 
+        <!-- Provided -->
+        <dependency>
+            <groupId>javax.servlet</groupId>
+            <artifactId>servlet-api</artifactId>
+            <version>2.5</version>
+            <scope>provided</scope>
+        </dependency>
+
 		<!-- Test -->
 		<dependency>
 			<groupId>org.dasein</groupId>
 			<artifactId>dasein-cloud-test</artifactId>
-			<version>2013.02.3</version>
+			<version>2013.07.1</version>
 			<scope>test</scope>
 			<optional>false</optional>
 		</dependency>
@@ -158,8 +160,8 @@
 						<exclude>**/LICENSE-APACHE.txt</exclude>
 					</excludes>
 					<properties>
-						<year>2009-2012</year>
-						<copyrightHolder>enStratus Networks Inc</copyrightHolder>
+						<year>2009-2013</year>
+						<copyrightHolder>Dell, Inc.</copyrightHolder>
 					</properties>
 				</configuration>
 			</plugin>
@@ -246,7 +248,7 @@
 						</property>
 					</systemProperties>
 					<includes>
-						<!-- <include>**/TerremarkTestSuite.java</include> -->
+						<include>**/TestSuite.java</include>
 					</includes>
 				</configuration>
 			</plugin>
@@ -309,24 +311,24 @@
 		<developer>
 			<name>Erik Johnson</name>
 			<id>erik-johnson</id>
-			<email>erik.johnson -at- enstratus -dot- com</email>
-			<organization>enStratus</organization>
+			<email>erik_j -at- dell -dot- com</email>
+			<organization>Dell</organization>
 			<roles>
 				<role>Java Developer</role>
 			</roles>
-			<url>http://www.enstratus.com</url>
+			<url>http://software.dell.com</url>
 			<timezone>-6</timezone>
 		</developer>
 		<developer>
 			<name>George Reese</name>
 			<id>greese</id>
-			<email>george.reese -at- enstratus -dot- com</email>
-			<organization>enStratus</organization>
+			<email>george_reese -at- dell -dot- com</email>
+			<organization>Dell</organization>
 			<roles>
 				<role>Java Developer</role>
 				<role>PMC</role>
 			</roles>
-			<url>http://www.enstratus.com</url>
+			<url>http://software.dell.com</url>
 			<timezone>-6</timezone>
 		</developer>
 	</developers>

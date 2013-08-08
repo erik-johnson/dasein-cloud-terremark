@@ -1,5 +1,6 @@
 /**
- * Copyright (C) 2009-2012 enStratus Networks Inc
+ * Copyright (C) 2009-2013 Dell, Inc.
+ * See annotations for authorship information
  *
  * ====================================================================
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,13 +19,7 @@
 
 package org.dasein.cloud.terremark;
 
-import junit.framework.Test;
+import org.dasein.cloud.test.GlobalTestSuite;
 
-import org.dasein.cloud.test.ComprehensiveTestSuite;
-import org.dasein.cloud.test.TestConfigurationException;
-
-public class TerremarkTestSuite  {
-    static public Test suite() throws TestConfigurationException {
-        return new ComprehensiveTestSuite(Terremark.class);
-    }
+public class TerremarkTestSuite extends GlobalTestSuite {
 }

@@ -1,3 +1,22 @@
+/**
+ * Copyright (C) 2009-2013 Dell, Inc.
+ * See annotations for authorship information
+ *
+ * ====================================================================
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * ====================================================================
+ */
+
 package org.dasein.cloud.terremark.compute;
 
 import java.io.InputStream;
@@ -5,8 +24,6 @@ import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
-import java.util.Iterator;
 import java.util.Locale;
 
 import javax.annotation.Nonnull;
@@ -29,19 +46,19 @@ import org.dasein.cloud.ProviderContext;
 import org.dasein.cloud.Requirement;
 import org.dasein.cloud.ResourceStatus;
 import org.dasein.cloud.Tag;
+import org.dasein.cloud.compute.AbstractImageSupport;
 import org.dasein.cloud.compute.Architecture;
 import org.dasein.cloud.compute.ImageClass;
 import org.dasein.cloud.compute.ImageCreateOptions;
+import org.dasein.cloud.compute.ImageFilterOptions;
 import org.dasein.cloud.compute.MachineImage;
 import org.dasein.cloud.compute.MachineImageFormat;
 import org.dasein.cloud.compute.MachineImageState;
-import org.dasein.cloud.compute.MachineImageSupport;
 import org.dasein.cloud.compute.MachineImageType;
 import org.dasein.cloud.compute.Platform;
 import org.dasein.cloud.compute.VirtualMachine;
 import org.dasein.cloud.compute.VmState;
 import org.dasein.cloud.dc.DataCenter;
-import org.dasein.cloud.identity.ServiceAction;
 import org.dasein.cloud.terremark.EnvironmentsAndComputePools;
 import org.dasein.cloud.terremark.Terremark;
 import org.dasein.cloud.terremark.TerremarkException;
@@ -55,7 +72,7 @@ import org.w3c.dom.NamedNodeMap;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
-public class Template  implements MachineImageSupport {
+public class Template extends AbstractImageSupport {
 
 	public enum ImageType {
 		TEMPLATE, CATALOG_ENTRY;
@@ -88,90 +105,12 @@ public class Template  implements MachineImageSupport {
 	private Terremark provider;
 
 	Template(Terremark provider) {
+        super(provider);
 		this.provider = provider;
 	}
 
-	/**
-	 * Adds the specified account number to the list of accounts with which this image is shared.
-	 * @param providerImageId the unique ID of the image to be shared
-	 * @param accountNumber the account number with which the image will be shared
-	 * @throws CloudException an error occurred with the cloud provider
-	 * @throws InternalException a local error occurred in the Dasein Cloud implementation
-	 * @throws OperationNotSupportedException the cloud does not support sharing images with other accounts
-	 */
-	@Override
-	public void addImageShare(String providerImageId, String accountNumber) throws CloudException, InternalException {
-		throw new OperationNotSupportedException("Cannot share images");
-	}
-
-	/**
-	 * Shares the specified image with the public.
-	 * @param providerImageId the unique ID of the image to be made public
-	 * @throws CloudException an error occurred with the cloud provider
-	 * @throws InternalException a local error occurred in the Dasein Cloud implementation
-	 * @throws OperationNotSupportedException the cloud does not support sharing images with the public
-	 */
-	@Override
-	public void addPublicShare(String providerImageId) throws CloudException, InternalException {
-		throw new OperationNotSupportedException("Cannot share images");
-	}
-
-	/**
-	 * Bundles the specified virtual machine to cloud storage so it may be registered as a machine image. Upon completion
-	 * of this task, there should be a file or set of files that capture the target virtual machine in a file format
-	 * that can later be registered into a machine image.
-	 * @param virtualMachineId the virtual machine to be bundled
-	 * @param format the format in which the VM should be bundled
-	 * @param bucket the bucket to which the VM should be bundled
-	 * @param name the name of the object to be created or the prefix for the name
-	 * @return the location of the bundle file or a manifest to the bundle file
-	 * @throws CloudException an error occurred with the cloud provider
-	 * @throws InternalException a local error occurred in the Dasein Cloud implementation
-	 */
-	@Override
-	public String bundleVirtualMachine(String virtualMachineId, MachineImageFormat format, String bucket, String name) throws CloudException, InternalException {
-		throw new OperationNotSupportedException("Cannot bundle images to cloud storage");
-	}
-
-	/**
-	 * Bundles the specified virtual machine to cloud storage so it may be registered as a machine image. Upon completion
-	 * of this task, there should be a file or set of files that capture the target virtual machine in a file format
-	 * that can later be registered into a machine image.
-	 * @param virtualMachineId the virtual machine to be bundled
-	 * @param format the format in which the VM should be bundled
-	 * @param bucket the bucket to which the VM should be bundled
-	 * @param name the name of the object to be created or the prefix for the name
-	 * @param trackingTask the task against which progress for bundling will be tracked
-	 * @throws CloudException an error occurred with the cloud provider
-	 * @throws InternalException a local error occurred in the Dasein Cloud implementation
-	 */
-	@Override
-	public void bundleVirtualMachineAsync(String virtualMachineId, MachineImageFormat format, String bucket, String name, AsynchronousTask<String> trackingTask) throws CloudException, InternalException {
-		throw new OperationNotSupportedException("Cannot bundle images to cloud storage");
-	}
-
-	/**
-	 * Captures a virtual machine as a machine image. If the underlying cloud requires the virtual machine to change state
-	 * (a common example is that the VM must be {@link VmState#STOPPED}), then this method will make sure the VM is in
-	 * that state. This method blocks until the cloud API has provided a reference to the machine image, regardless of
-	 * what state it is in.
-	 * @param options the options used in capturing the virtual machine
-	 * @return a newly created machine image
-	 * @throws CloudException an error occurred with the cloud provider
-	 * @throws InternalException a local error occurred in the Dasein Cloud implementation
-	 * @throws OperationNotSupportedException the cloud does not support custom image creation
-	 */
-	@Override
-	public MachineImage captureImage(ImageCreateOptions options) throws CloudException, InternalException {
-		ProviderContext ctx = provider.getContext();
-
-		if( ctx == null ) {
-			throw new CloudException("No context was set for this request");
-		}
-		return captureImage(ctx, options, null);
-	}
-
-	private @Nonnull MachineImage captureImage(@Nonnull ProviderContext ctx, @Nonnull ImageCreateOptions options, @Nullable AsynchronousTask<MachineImage> task) throws CloudException, InternalException {
+    @Override
+	protected @Nonnull MachineImage capture(@Nonnull ImageCreateOptions options, @Nullable AsynchronousTask<MachineImage> task) throws CloudException, InternalException {
 		APITrace.begin(provider, "captureImage");
 		try {
 			if( task != null ) {
@@ -257,45 +196,6 @@ public class Template  implements MachineImageSupport {
 		finally {
 			APITrace.end();
 		}
-	}
-
-
-	/**
-	 * Executes the process of {@link #captureImage(ImageCreateOptions)} as an asynchronous process tracked using an
-	 * asynchronous task object. This method is expected to return immediately and provide feedback to a client on the
-	 * progress of the machine image capture process.
-	 * @param options the options to be used in capturing the virtual machine
-	 * @param taskTracker the asynchronous task for tracking the progress of this operation
-	 * @throws CloudException an error occurred with the cloud provider
-	 * @throws InternalException a local error occurred in the Dasein Cloud implementation
-	 * @throws OperationNotSupportedException the cloud does not support custom image creation
-	 */
-	@Override
-	public void captureImageAsync(final ImageCreateOptions options, final AsynchronousTask<MachineImage> taskTracker) throws CloudException, InternalException {
-		final ProviderContext ctx = provider.getContext();
-
-		if( ctx == null ) {
-			throw new CloudException("No context was set for this request");
-		}
-
-		Thread t = new Thread() {
-			public void run() {
-				try {
-					taskTracker.completeWithResult(captureImage(ctx, options, taskTracker));
-				}
-				catch( Throwable t ) {
-					taskTracker.complete(t);
-				}
-				finally {
-					provider.release();
-				}
-			}
-		};
-
-		provider.hold();
-		t.setName("Imaging " + options.getVirtualMachineId() + " as " + options.getName());
-		t.setDaemon(true);
-		t.start();
 	}
 
 	private MachineImage catalogEntryToMachineImage(Node catalogEntryNode) throws CloudException, InternalException {
@@ -414,7 +314,7 @@ public class Template  implements MachineImageSupport {
 	@Override
 	public @Nullable MachineImage getImage(String providerImageId) throws CloudException, InternalException {
 		if (providerImageId == null){
-			logger.debug("getMachineImage(): The image id is null");
+			logger.debug("getImage(): The image id is null");
 			return null;
 		}
 		MachineImage template = null;
@@ -429,7 +329,7 @@ public class Template  implements MachineImageSupport {
 			imageType = imageIds[2];
 		}
 		else {
-			logger.error("getMachineImage(): Invalid machineImageId " + providerImageId + ". Must be of the form: <templateId>:<computePoolId>:<image_type>");
+			logger.error("getImage(): Invalid machineImageId " + providerImageId + ". Must be of the form: <templateId>:<computePoolId>:<image_type>");
 			return null;
 		}
 		if (imageType.equalsIgnoreCase(ImageType.TEMPLATE.name())) {
@@ -439,11 +339,11 @@ public class Template  implements MachineImageSupport {
 			try {
 				doc = method.invoke();
 			} catch (TerremarkException e) {
-				logger.warn("Failed to get template " + providerImageId);
+				logger.warn("getImage(): Failed to get template " + providerImageId);
 			} catch (CloudException e) {
-				logger.warn("Failed to get template " + providerImageId);
+				logger.warn("getImage(): Failed to get template " + providerImageId);
 			} catch (InternalException e) {
-				logger.warn("Failed to get template " + providerImageId);
+				logger.warn("getImage(): Failed to get template " + providerImageId);
 			}
 			if (doc != null){
 				template = templateToMachineImage(doc);
@@ -456,11 +356,11 @@ public class Template  implements MachineImageSupport {
 			try {
 				doc = method.invoke();
 			} catch (TerremarkException e) {
-				logger.warn("Failed to get template " + providerImageId);
+				logger.warn("getImage(): Failed to get template " + providerImageId);
 			} catch (CloudException e) {
-				logger.warn("Failed to get template " + providerImageId);
+				logger.warn("getImage(): Failed to get template " + providerImageId);
 			} catch (InternalException e) {
-				logger.warn("Failed to get template " + providerImageId);
+				logger.warn("getImage(): Failed to get template " + providerImageId);
 			}
 			if (doc != null){
 				Node catalogEntryNode = doc.getElementsByTagName(CATALOG_ENTRY_TAG).item(0);
@@ -469,19 +369,6 @@ public class Template  implements MachineImageSupport {
 		}
 
 		return template;
-	}
-
-	/**
-	 * Provides access to the current state of the specified image.
-	 * @param providerImageId the cloud provider ID uniquely identifying the desired image
-	 * @return the image matching the desired ID if it exists
-	 * @throws CloudException an error occurred with the cloud provider
-	 * @throws InternalException a local error occurred in the Dasein Cloud implementation
-	 * @deprecated Use {@link #getImage(String)}
-	 */
-	@Override
-	public @Nullable MachineImage getMachineImage(@Nonnull String machineImageId) throws CloudException, InternalException {
-		return getImage(machineImageId);
 	}
 
     /**
@@ -502,7 +389,7 @@ public class Template  implements MachineImageSupport {
 	 * @deprecated Use {@link #getProviderTermForImage(Locale, ImageClass)}
 	 */
 	@Override
-	public String getProviderTermForImage(Locale arg0) {
+	public @Nonnull String getProviderTermForImage(@Nonnull Locale locale) {
 		return "template/catalog entry";
 	}
 
@@ -541,66 +428,9 @@ public class Template  implements MachineImageSupport {
 	}
 
 	/**
-	 * Creates a machine image from a virtual machine. This method simply calls {@link #captureImageAsync(ImageCreateOptions, AsynchronousTask)}
-	 * using the task it returns to you.
-	 * @param vmId the unique ID of the virtual machine to be imaged
-	 * @param name the name to give the new image
-	 * @param description the description to give the new image
-	 * @return an asynchronous task for tracking the progress of the imaging
-	 * @throws CloudException an error occurred with the cloud provider
-	 * @throws InternalException an error occurred within the Dasein cloud implementation
-	 * @throws OperationNotSupportedException the cloud does not support custom image creation
-	 * @deprecated Use {@link #captureImage(ImageCreateOptions)} or {@link #captureImageAsync(ImageCreateOptions, AsynchronousTask)}
-	 */
-	@Override
-	public @Nonnull AsynchronousTask<String> imageVirtualMachine(String vmId, String name, String description) throws CloudException, InternalException {
-		VirtualMachine vm = provider.getComputeServices().getVirtualMachineSupport().getVirtualMachine(vmId);
-
-		if( vm == null ) {
-			throw new CloudException("No such virtual machine: " + vmId);
-		}
-		final AsynchronousTask<MachineImage> task = new AsynchronousTask<MachineImage>();
-		final AsynchronousTask<String> oldTask = new AsynchronousTask<String>();
-
-		captureImageAsync(ImageCreateOptions.getInstance(vm,  name, description), task);
-
-		Thread t = new Thread() {
-			public void run() {
-				while( DEFAULT_TIMEOUT > System.currentTimeMillis() ) {
-					try { Thread.sleep(15000L); }
-					catch( InterruptedException ignore ) { }
-					oldTask.setPercentComplete(task.getPercentComplete());
-
-					Throwable error = task.getTaskError();
-					MachineImage img = task.getResult();
-
-					if( error != null ) {
-						oldTask.complete(error);
-						return;
-					}
-					else if( img != null ) {
-						oldTask.completeWithResult(img.getProviderMachineImageId());
-						return;
-					}
-					else if( task.isComplete() ) {
-						oldTask.complete(new CloudException("Task completed without info"));
-						return;
-					}
-				}
-				oldTask.complete(new CloudException("Image creation task timed out"));
-			}
-		};
-
-		t.setDaemon(true);
-		t.start();
-
-		return oldTask;
-	}
-
-	/**
 	 * Indicates whether or not the specified image is shared publicly. It should return false when public image sharing
 	 * simply isn't supported by the underlying cloud.
-	 * @param providerImageId the machine image being checked for public status
+	 * @param machineImageId the machine image being checked for public status
 	 * @return true if the target machine image is shared with the general public
 	 * @throws CloudException an error occurred with the cloud provider
 	 * @throws InternalException an error occurred within the Dasein cloud implementation
@@ -719,43 +549,19 @@ public class Template  implements MachineImageSupport {
 		return imagesStatus;
 	}
 
-	/**
-	 * Lists all images in my library. This generally includes all images belonging to me as well any explicitly shared
-	 * with me. In clouds without a public library, it's all images I can see.
-	 * @param cls the class of image being listed
-	 * @return the list of images in my image library of the specified image class
-	 * @throws CloudException an error occurred with the cloud provider
-	 * @throws InternalException a local error occurred in the Dasein Cloud implementation
-	 */
-	@Override
-	public Iterable<MachineImage> listImages(ImageClass cls) throws CloudException, InternalException {
-		logger.trace("enter - listImages()");
-		Collection<MachineImage> images = new ArrayList<MachineImage>();
-		images.addAll(listCatalogItems());
-		logger.trace("exit - listImages()");
-		return images;
-	}
 
-	/**
-	 * Lists all images that I can see belonging to the specified account owner. These images may either be public or
-	 * explicitly shared with me.
-	 * @param cls the class of the image being listed
-	 * @param ownedBy the account number of the owner of the image
-	 * @return the list of images I can see belonging to the specified account owner of the specified image class
-	 * @throws CloudException an error occurred with the cloud provider
-	 * @throws InternalException a local error occurred in the Dasein Cloud implementation
-	 */
-	@Override
-	public Iterable<MachineImage> listImages(ImageClass cls, String ownedBy) throws CloudException, InternalException {
-		logger.trace("enter - listImages(" + cls + ", " + ownedBy + ")");
-		Iterable<MachineImage> images;
-		if( ownedBy == null || ownedBy.equals(provider.getContext().getAccountNumber()) ) {
-			images = listCatalogItems();
-		}
-		else {
-			images = Collections.emptyList();
-		}
-		logger.trace("exit - listImages(" + cls + ", " + ownedBy + ")");
+    @Nonnull
+    @Override
+    public Iterable<MachineImage> listImages(@Nullable ImageFilterOptions options) throws CloudException, InternalException {
+        logger.trace("enter - listImages()");
+		Collection<MachineImage> images = new ArrayList<MachineImage>();
+
+        for( MachineImage img: listCatalogItems() ) {
+            if( options == null || options.matches(img) ) {
+                images.add(img);
+            }
+        }
+		logger.trace("exit - listImages()");
 		return images;
 	}
 
@@ -774,46 +580,6 @@ public class Template  implements MachineImageSupport {
 		imagesStatus.addAll(listCatalogItemsStatus());
 		logger.trace("exit - listImageStatus()");
 		return imagesStatus;
-	}
-
-	/**
-	 * Lists all images of class {@link ImageClass#MACHINE} in my library.
-	 * @return the list of machine machine images
-	 * @throws CloudException an error occurred with the cloud provider
-	 * @throws InternalException a local error occurred in the Dasein Cloud implementation
-	 * @deprecated Use {@link #listImages(ImageClass)} with {@link ImageClass#MACHINE}
-	 */
-	@Override
-	public Iterable<MachineImage> listMachineImages() throws CloudException, InternalException {
-		return listImages(ImageClass.MACHINE);
-	}
-
-	/**
-	 * Lists all images of class {@link ImageClass#MACHINE} that I can see belonging to the specified account owner.
-	 * These images may either be public or explicitly shared with me. You may specify no accountId to indicate you
-	 * are looking for the public library.
-	 * @param accountId the accountId of the owner of the target images or <code>null</code> indicating you want the public library
-	 * @return the list of machine machine images belonging to the specified account owner
-	 * @throws CloudException an error occurred with the cloud provider
-	 * @throws InternalException a local error occurred in the Dasein Cloud implementation
-	 * @deprecated Use {@link #listImages(ImageClass,String)}
-	 */
-	@Override
-	public @Nonnull Iterable<MachineImage> listMachineImagesOwnedBy(String accountId) throws CloudException, InternalException {
-		return listImages(ImageClass.MACHINE, accountId);
-	}
-
-	/**
-	 * Provides the account numbers for all accounts which which the specified machine image has been shared. This method
-	 * should return an empty list when sharing is unsupported.
-	 * @param providerImageId the unique ID of the image being checked
-	 * @return a list of account numbers with which the target image has been shared
-	 * @throws CloudException an error occurred with the cloud provider
-	 * @throws InternalException a local error occurred in the Dasein Cloud implementation
-	 */
-	@Override
-	public Iterable<String> listShares(String forMachineImageId) throws CloudException, InternalException {
-		return Collections.emptyList();
 	}
 
 	/**
@@ -906,11 +672,6 @@ public class Template  implements MachineImageSupport {
 		return images;
 	}
 
-	@Override
-	public String[] mapServiceAction(ServiceAction arg0) {
-		return new String[0];
-	}
-
 	/**
 	 * Registers the bundled virtual machine stored in object storage as a machine image in the cloud.
 	 * @param options the options used in registering the machine image
@@ -928,16 +689,12 @@ public class Template  implements MachineImageSupport {
 	/**
 	 * Permanently removes all traces of the target image. This method should remove both the image record in the cloud
 	 * and any cloud storage location in which the image resides for staging.
-	 * @param providerImageId the unique ID of the image to be removed
+	 * @param machineImageId the unique ID of the image to be removed
 	 * @throws CloudException an error occurred with the cloud provider
 	 * @throws InternalException a local error occurred in the Dasein Cloud implementation
 	 */
 	@Override
 	public void remove(@Nonnull String machineImageId) throws CloudException, InternalException {
-		if (machineImageId == null){
-			throw new InternalException("getMachineImage(): The image id is null");
-		}
-
 		String imageId = null;
 		String imageType = null;
 
@@ -968,7 +725,7 @@ public class Template  implements MachineImageSupport {
 	   * @throws InternalException a local error occurred in the Dasein Cloud implementation
 	   */
 	@Override
-	public void remove(String providerImageId, boolean checkState) throws CloudException, InternalException {
+	public void remove(@Nonnull String providerImageId, boolean checkState) throws CloudException, InternalException {
 	    if ( checkState ) {
 	        long timeout = System.currentTimeMillis() + (CalendarWrapper.MINUTE * 30L);
 
@@ -993,43 +750,6 @@ public class Template  implements MachineImageSupport {
 	      }
 
 	      remove( providerImageId );
-	}
-
-	/**
-	 * Removes ALL specific account shares for the specified image. NOTE THAT THIS METHOD WILL NOT THROW AN EXCEPTION
-	 * WHEN IMAGE SHARING IS NOT SUPPORTED. IT IS A NO-OP IN THAT SCENARIO.
-	 * @param providerImageId the unique ID of the image to be unshared
-	 * @throws CloudException an error occurred with the cloud provider
-	 * @throws InternalException a local error occurred in the Dasein Cloud implementation
-	 */
-	@Override
-	public void removeAllImageShares(String providerImageId) throws CloudException, InternalException {
-		// Not supported.
-	}
-
-	/**
-	 * Removes the specified account number from the list of accounts with which this image is shared.
-	 * @param providerImageId the unique ID of the image to be unshared
-	 * @param accountNumber the account number to be removed
-	 * @throws CloudException an error occurred with the cloud provider
-	 * @throws InternalException a local error occurred in the Dasein Cloud implementation
-	 * @throws OperationNotSupportedException the cloud does not support sharing images with other accounts
-	 */
-	@Override
-	public void removeImageShare(String providerImageId, String accountNumber) throws CloudException, InternalException {
-		throw new OperationNotSupportedException("Terremark does not support sharing images with other accounts");
-	}
-
-	/**
-	 * Removes the public share (if shared) for this image. Safe to call even if the image is not shared or sharing
-	 * is not supported.
-	 * @param providerImageId the unique ID of the image to be unshared
-	 * @throws CloudException an error occurred with the cloud provider
-	 * @throws InternalException a local error occurred in the Dasein Cloud implementation
-	 */
-	@Override
-	public void removePublicShare(String providerImageId) throws CloudException, InternalException {
-		// Not supported.
 	}
 
 	/**
@@ -1103,120 +823,22 @@ public class Template  implements MachineImageSupport {
 		return results;
 	}
 
-	/**
-	 * Searches all machine images visible, public or otherwise, to this account for ones that match the specified values.
-	 * If a search parameter is null, it doesn't constrain on that parameter.
-	 * @param keyword a keyword on which to search
-	 * @param platform the platform to be matched
-	 * @param architecture the architecture to be matched
-	 * @return any matching machine images (images of class {@link ImageClass#MACHINE})
-	 * @throws CloudException an error occurred with the cloud provider
-	 * @throws InternalException a local error occurred in the Dasein Cloud implementation
-	 * @deprecated Use {@link #searchImages(String, String, Platform, Architecture, ImageClass...)} and/or {@link #searchPublicImages(String, Platform, Architecture, ImageClass...)}
-	 */
 	@Override
-	public @Nonnull Iterable<MachineImage> searchMachineImages(@Nullable String keyword, @Nullable Platform platform, @Nullable Architecture architecture) throws CloudException, InternalException {
-		Collection<MachineImage> imageResults = new ArrayList<MachineImage>();
-		Iterable<MachineImage> privateImages = searchImages(null, keyword, platform, architecture, ImageClass.MACHINE);
-		Iterator<MachineImage> imageItr = privateImages.iterator();
-		while (imageItr.hasNext()) {
-			imageResults.add(imageItr.next());
-		}
-		Iterable<MachineImage> publicImages = searchPublicImages(keyword, platform, architecture, ImageClass.MACHINE);
-		imageItr = publicImages.iterator();
-		while (imageItr.hasNext()) {
-			imageResults.add(imageItr.next());
-		}
-		return imageResults;
-	}
-
-	/**
-	 * Searches the public machine image library. It will match against the specified parameters. Any null parameter does
-	 * not constrain the search.
-	 * @param keyword a keyword on which to search
-	 * @param platform the platform to match
-	 * @param architecture the architecture to match
-	 * @param imageClasses the image classes to search for (null or empty list for all)
-	 * @return all matching machine images
-	 * @throws CloudException an error occurred with the cloud provider
-	 * @throws InternalException a local error occurred in the Dasein Cloud implementation
-	 */
-	@Override
-	public Iterable<MachineImage> searchPublicImages(String keyword, Platform platform, Architecture architecture, ImageClass... imageClasses) throws CloudException, InternalException {
-		logger.trace("enter - searchPublicImages(" + keyword + ", " + platform + ", " + architecture + ")");
-
-		boolean machineClass = false;
-
-		if (imageClasses == null || imageClasses.length == 0) {
-			machineClass = true;
-		}
-		else {
-			for (ImageClass imageClass : imageClasses) {
-				if (imageClass.equals(ImageClass.MACHINE)) {
-					machineClass = true;
-					break;
-				}
-			}
-		}
+	public @Nonnull Iterable<MachineImage> searchPublicImages(@Nonnull ImageFilterOptions options) throws CloudException, InternalException {
+		logger.trace("enter - searchPublicImages(" + options + ")");
 
 		ArrayList<MachineImage> results = new ArrayList<MachineImage>();
 		
-		if (machineClass) {
-			logger.debug("searchMachineImages(): Calling list templates");
-			Iterable<MachineImage> images = listTemplates();
-			for( MachineImage image : images ) {
-				if( keyword != null ) {
-					if( !image.getProviderMachineImageId().contains(keyword) && !image.getName().contains(keyword) && !image.getDescription().contains(keyword) ) {
-						continue;
-					}
-				}
-				if( platform != null ) {
-					Platform p = image.getPlatform();
-
-					if( !platform.equals(p) ) {
-						if( platform.isWindows() ) {
-							if( !p.isWindows() ) {
-								continue;
-							}
-						}
-						else if( platform.equals(Platform.UNIX) ){
-							if( !p.isUnix() ) {
-								continue;
-							}
-						}
-						else {
-							continue;
-						}
-					}
-				}
-				if (architecture != null) {
-					if (architecture != image.getArchitecture()) {
-						continue;
-					}
-				}
-				logger.debug("searchMachineImages(): Adding image " + image + " to results");
-				results.add(image);
-			}
-		}
+        logger.debug("searchMachineImages(): Calling list templates");
+        Iterable<MachineImage> images = listTemplates();
+        for( MachineImage image : images ) {
+            if( options.matches(image) ) {
+                logger.debug("searchMachineImages(): Adding image " + image + " to results");
+                results.add(image);
+            }
+        }
 		logger.trace("exit - searchPublicImages()");
 		return results;
-	}
-
-	/**
-	 * Adds or removes sharing for the specified image with the specified account or the public. This method simply delegates to the
-	 * newer {@link #addImageShare(String, String)}, {@link #removeImageShare(String, String)},
-	 * {@link #addPublicShare(String)}, or {@link #removePublicShare(String)} methods.
-	 * @param providerImageId the image to be shared/unshared
-	 * @param withAccountId the account with which the image is to be shared/unshared (null if the operation is for a public share)
-	 * @param allow true if the image is to be shared, false if it is to be unshared
-	 * @throws CloudException an error occurred with the cloud provider
-	 * @throws InternalException a local error occurred in the Dasein Cloud implementation
-	 * @throws OperationNotSupportedException the cloud does not support sharing images with other accounts
-	 * @deprecated Use {@link #addImageShare(String, String)}, {@link #removeImageShare(String, String)}, {@link #addPublicShare(String)}, or {@link #removePublicShare(String)}
-	 */
-	@Override
-	public void shareMachineImage(@Nonnull String machineImageId, @Nonnull String withAccountId, boolean allow) throws CloudException, InternalException {
-		throw new OperationNotSupportedException("Cannot share images");
 	}
 
 	/**
@@ -1278,14 +900,6 @@ public class Template  implements MachineImageSupport {
 		return false;
 	}
 
-	/**
-	 * Indicates whether a library of public images of the specified class should be expected. If true,
-	 * {@link #listImages(ImageClass)} should provide a non-empty list of that type.
-	 * @param cls the image class of the images being checked
-	 * @return true if a public image library exists
-	 * @throws CloudException an error occurred with the cloud provider
-	 * @throws InternalException an error occurred within the Dasein cloud implementation
-	 */
 	@Override
 	public boolean supportsPublicLibrary(ImageClass cls) throws CloudException, InternalException {
 		return cls.equals(ImageClass.MACHINE);
@@ -1336,19 +950,6 @@ public class Template  implements MachineImageSupport {
 		template.setType(MachineImageType.VOLUME);
 		template.setImageClass(ImageClass.MACHINE);
 		return template;
-	}
-
-	/**
-	 * Updates meta-data for a image with the new values. It will not overwrite any value that currently
-	 * exists unless it appears in the tags you submit.
-	 * @param imageId the image to update
-	 * @param tags the meta-data tags to set
-	 * @throws CloudException an error occurred within the cloud provider
-	 * @throws InternalException an error occurred within the Dasein Cloud API implementation
-	 */
-	@Override
-	public void updateTags(String imageId, Tag... tags) throws CloudException, InternalException {
-		throw new OperationNotSupportedException("Cannot set image tags");
 	}
 
 }

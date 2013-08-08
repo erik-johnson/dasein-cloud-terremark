@@ -1,3 +1,22 @@
+/**
+ * Copyright (C) 2009-2013 Dell, Inc.
+ * See annotations for authorship information
+ *
+ * ====================================================================
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * ====================================================================
+ */
+
 package org.dasein.cloud.terremark.compute;
 
 import java.io.StringWriter;
@@ -23,6 +42,7 @@ import org.dasein.cloud.OperationNotSupportedException;
 import org.dasein.cloud.ProviderContext;
 import org.dasein.cloud.Requirement;
 import org.dasein.cloud.ResourceStatus;
+import org.dasein.cloud.compute.AbstractVolumeSupport;
 import org.dasein.cloud.compute.Platform;
 import org.dasein.cloud.compute.VmState;
 import org.dasein.cloud.compute.Volume;
@@ -47,7 +67,7 @@ import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
-public class DiskSupport implements VolumeSupport {
+public class DiskSupport extends AbstractVolumeSupport {
 
 	// API Calls
 	public final static String DETACHED_DISKS              = "detachedDisks";
@@ -75,6 +95,7 @@ public class DiskSupport implements VolumeSupport {
 	private Terremark provider;
 
 	DiskSupport(Terremark provider) {
+        super(provider);
 		this.provider = provider;
 	}
 
@@ -143,15 +164,6 @@ public class DiskSupport implements VolumeSupport {
 
 		}
 	}
-
-    /**
-     * Creating detached volumes is not supported in Terremark.
-     * @throws OperationNotSupportedException this method is not supported in Terremark
-     */
-	@Override
-	public String create(String fromSnapshot, int sizeInGb, String inZone) throws InternalException, CloudException {
-		throw new OperationNotSupportedException("Creating volumes is not supported");
-	}
 	
     /**
      * Creating detached volumes is not supported in Terremark.
@@ -161,17 +173,6 @@ public class DiskSupport implements VolumeSupport {
     public @Nonnull String createVolume(@Nonnull VolumeCreateOptions options) throws InternalException, CloudException {
     	throw new OperationNotSupportedException("Creating volumes is not supported");
     }
-
-    /**
-     * Detaches the specified volume from any virtual machines to which it might be attached.
-     * @param volumeId the unique ID of the volume to be detached
-     * @throws InternalException an error occurred in the Dasein Cloud implementation while performing the detachment
-     * @throws CloudException the detachment failed with the cloud provider
-     */
-	@Override
-	public void detach(String volumeId) throws InternalException, CloudException {
-		detach(volumeId, false);
-	}
 	
     /**
      * Detaches the specified volume from any virtual machines to which it might be attached with the option to
@@ -482,11 +483,8 @@ public class DiskSupport implements VolumeSupport {
 					if (diskChild.getNodeName().equals("Index")) {
 						String diskIndex = diskChild.getTextContent();
 						disk.setProviderVolumeId(vmId + ":" + diskIndex);
-					}
-					else if (diskChild.getNodeName().equals("Type")) {
-						boolean rootVolume = diskChild.getNodeValue().equalsIgnoreCase("System");
-						disk.setRootVolume(rootVolume);
-						if (rootVolume) {
+						if (diskIndex.equals("0")) {
+							disk.setRootVolume(true);
 							String os = doc.getElementsByTagName("OperatingSystem").item(0).getAttributes().getNamedItem(Terremark.NAME).getNodeValue();
 							disk.setGuestOperatingSystem(Platform.guess(os));
 						}
@@ -658,6 +656,15 @@ public class DiskSupport implements VolumeSupport {
 							}
 							else {
 								volume.setCurrentState(VolumeState.PENDING);
+							}
+						}
+						else if (diskChild.getNodeName().equals("Type")) {
+							boolean rootVolume = diskChild.getNodeValue().equalsIgnoreCase("System");
+							volume.setRootVolume(rootVolume);
+							if (rootVolume) {
+								//Fix this, don't get this from doc
+								String os = doc.getElementsByTagName("OperatingSystem").item(0).getAttributes().getNamedItem(Terremark.NAME).getNodeValue();
+								volume.setGuestOperatingSystem(Platform.guess(os));
 							}
 						}
 					}

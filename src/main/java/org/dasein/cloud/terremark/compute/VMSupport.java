@@ -1,3 +1,22 @@
+/**
+ * Copyright (C) 2009-2013 Dell, Inc.
+ * See annotations for authorship information
+ *
+ * ====================================================================
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * ====================================================================
+ */
+
 package org.dasein.cloud.terremark.compute;
 
 import java.io.StringWriter;
@@ -33,6 +52,7 @@ import org.dasein.cloud.ProviderContext;
 import org.dasein.cloud.Requirement;
 import org.dasein.cloud.ResourceStatus;
 import org.dasein.cloud.Tag;
+import org.dasein.cloud.compute.AbstractVMSupport;
 import org.dasein.cloud.compute.Architecture;
 import org.dasein.cloud.compute.ImageClass;
 import org.dasein.cloud.compute.MachineImage;
@@ -74,7 +94,7 @@ import org.w3c.dom.NamedNodeMap;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
-public class VMSupport implements VirtualMachineSupport {
+public class VMSupport extends AbstractVMSupport {
 
 	// API Calls
 	public final static String VIRTUAL_MACHINES        = "virtualMachines";
@@ -164,6 +184,7 @@ public class VMSupport implements VirtualMachineSupport {
 	private HashMap<String,String> imageMap = new HashMap<String,String>();
 
 	public VMSupport(Terremark t) {
+        super(t);
 		provider = t;
 	}
 
@@ -240,7 +261,7 @@ public class VMSupport implements VirtualMachineSupport {
 			Element processorCountElement = doc.createElement("ProcessorCount");
 			processorCountElement.appendChild(doc.createTextNode(cpuCount));
 			rootElement.appendChild(processorCountElement);
-			
+
 			Element memoryElement = doc.createElement("Memory");
 			Element memoryUnitElement = doc.createElement("Unit");
 			memoryUnitElement.appendChild(doc.createTextNode("MB"));
@@ -249,24 +270,31 @@ public class VMSupport implements VirtualMachineSupport {
 			memoryValueElement.appendChild(doc.createTextNode(ramSize));
 			memoryElement.appendChild(memoryValueElement);
 			rootElement.appendChild(memoryElement);
-			
+
 			Element disksElement = doc.createElement("Disks");
+            Integer index = 0;
 			for (String diskSize : diskSizes) {
 				Element diskElement = doc.createElement("Disk");
+
+                Element indexElement = doc.createElement("Index");
+                indexElement.appendChild(doc.createTextNode(index.toString()));
+                diskElement.appendChild(indexElement);
+
 				Element diskSizeElement = doc.createElement("Size");
-				
+
 				Element diskUnitElement = doc.createElement("Unit");
 				diskUnitElement.appendChild(doc.createTextNode("GB"));
 				diskSizeElement.appendChild(diskUnitElement);
 				Element diskValueElement = doc.createElement("Value");
 				diskValueElement.appendChild(doc.createTextNode(diskSize));
 				diskSizeElement.appendChild(diskValueElement);
-				
+
 				diskElement.appendChild(diskSizeElement);
 				disksElement.appendChild(diskElement);
+                index++;
 			}
 			rootElement.appendChild(disksElement);
-			
+
 			Element nicsElement = doc.createElement("Nics");
 			int nicCount = Integer.parseInt((String) vm.getTag("nic-count"));
 			for (int i=0; i<nicCount; i++) {
@@ -277,21 +305,21 @@ public class VMSupport implements VirtualMachineSupport {
 				String nicNetworkName = nicInfo[2];
 				String nicNetworkType = nicInfo[3];
 				Element nicElement = doc.createElement("Nic");
-				
+
 				Element unitNumberElement = doc.createElement("UnitNumber");
 				unitNumberElement.appendChild(doc.createTextNode(nicNumber));
 				nicElement.appendChild(unitNumberElement);
-				
+
 				Element networkElement = doc.createElement("Network");
 				networkElement.setAttribute(Terremark.HREF, nicNetworkHref);
 				networkElement.setAttribute(Terremark.NAME, nicNetworkName);
 				networkElement.setAttribute(Terremark.TYPE, nicNetworkType);
 				nicElement.appendChild(networkElement);
-				
+
 				nicsElement.appendChild(nicElement);
 			}
 			rootElement.appendChild(nicsElement);
-			
+
 			doc.appendChild(rootElement);
 
 			StringWriter stw = new StringWriter(); 
@@ -309,7 +337,7 @@ public class VMSupport implements VirtualMachineSupport {
 			String taskHref = Terremark.getTaskHref(doc, CONFIGURE_OPERATION);
 			provider.waitForTask(taskHref, DEFAULT_SLEEP, DEFAULT_TIMEOUT);
 		}
-		
+
 		return getVirtualMachine(vmId);
 	}
 
@@ -394,7 +422,7 @@ public class VMSupport implements VirtualMachineSupport {
 		String url = "/" + VIRTUAL_MACHINES + "/" + EnvironmentsAndComputePools.COMPUTE_POOLS + "/" + intoDcId + "/" + Terremark.ACTION + "/" + COPY_IDENTICAL_VM;
 
 		String body = "";
-		
+
 		Layout layout = getLayout(provider.getContext().getRegionId());
 		String rowId = null;
 		String groupId = null;
@@ -407,12 +435,12 @@ public class VMSupport implements VirtualMachineSupport {
 			Document doc = docBuilder.newDocument();
 			Element rootElement = doc.createElement("CopyIdenticalVirtualMachine");
 			rootElement.setAttribute(Terremark.NAME, name);
-			
+
 			Element sourceElement = doc.createElement("Source");
 			sourceElement.setAttribute(Terremark.HREF, Terremark.DEFAULT_URI_PATH + "/" + VIRTUAL_MACHINES + "/" + vmId);
 			sourceElement.setAttribute(Terremark.TYPE, VIRTUAL_MACHINE_TYPE);
 			rootElement.appendChild(sourceElement);
-			
+
 			Element layoutElement = doc.createElement("Layout");
 			if (layout.contains(ROW_NAME, GROUP_NAME)){
 				Row row = layout.getRowId(ROW_NAME, GROUP_NAME);
@@ -442,11 +470,11 @@ public class VMSupport implements VirtualMachineSupport {
 				layoutElement.appendChild(newGroup);
 			}
 			rootElement.appendChild(layoutElement);
-			
+
 			Element descriptionElement = doc.createElement("Description");
 			descriptionElement.appendChild(doc.createTextNode(description));
 			rootElement.appendChild(descriptionElement);
-			
+
 			doc.appendChild(rootElement);
 
 			StringWriter stw = new StringWriter(); 
@@ -483,44 +511,6 @@ public class VMSupport implements VirtualMachineSupport {
 	@Override
 	public VMScalingCapabilities describeVerticalScalingCapabilities() throws CloudException, InternalException {
 		return VMScalingCapabilities.getInstance(false, true, Requirement.REQUIRED, Requirement.REQUIRED);
-	}
-
-	/**
-	 * Turns hypervisor monitoring off for the target server. If the underlying cloud does not support
-	 * hypervisor monitoring or if the underlying cloud does not allow them to be turned off/on for
-	 * a running instance, this method will be a NO-OP.
-	 * @param vmId the provider ID for the server to stop monitoring
-	 * @throws InternalException an error occurred within the Dasein Cloud API implementation
-	 * @throws CloudException an error occurred within the cloud provider
-	 */
-	@Override
-	public void disableAnalytics(String vmId) throws InternalException, CloudException {
-		// Terremark does not allow monitoring to be turned off
-	}
-
-	/**
-	 * Turns hypervisor monitoring on for the target server. If the underlying cloud does not support
-	 * hypervisor monitoring or if the underlying cloud does not allow them to be turned off/on for
-	 * a running instance, this method will be a NO-OP.
-	 * @param vmId the provider ID for the server to start monitoring
-	 * @throws InternalException an error occurred within the Dasein Cloud API implementation
-	 * @throws CloudException an error occurred within the cloud provider
-	 */
-	@Override
-	public void enableAnalytics(String vmId) throws InternalException, CloudException {
-		// Terremark does not allow monitoring to be turned on
-	}
-
-	/**
-	 * Provides all output from the console of the target server since the specified Unix time.
-	 * @param vmId the unique ID of the target server
-	 * @return the current output from the server console
-	 * @throws InternalException an error occurred within the Dasein Cloud API implementation
-	 * @throws CloudException an error occurred within the cloud provider
-	 */
-	@Override
-	public String getConsoleOutput(@Nonnull String vmId) throws InternalException, CloudException {
-		return ""; // This could potentially be implemented by reading a log file on the vm, but that would be different for each OS.
 	}
 
 	/**
@@ -959,76 +949,6 @@ public class VMSupport implements VirtualMachineSupport {
 	}
 
 	/**
-	 * Launches a virtual machine in the cloud. If the cloud supports persistent servers, this method will
-	 * first define a server and then boot it. The end result of this operation should be a server
-	 * that is in the middle of booting up.
-	 * @param fromMachineImageId the provider ID of the image from which the server should be built
-	 * @param product the product being provisioned against
-	 * @param dataCenterId the provider ID for the data center into which the server will be launched
-	 * @param name the name of the new server
-	 * @param description a user-friendly description of the new virtual machine
-	 * @param withKeypairId the name of the keypair to use for root authentication or null if no keypair
-	 * @param inVlanId the ID of the VLAN into which the server should be launched, or null if not specifying (or not supported by the cloud)
-	 * @param withAnalytics whether or not hypervisor analytics should be enabled for the virtual machine
-	 * @param asSandbox for clouds that require sandboxes for image building, this launches the VM in a sandbox context
-	 * @param firewallIds the firewalls to protect the new server
-	 * @return the newly launched server
-	 * @throws InternalException an error occurred within the Dasein Cloud API implementation
-	 * @throws CloudException an error occurred within the cloud provider
-	 * @deprecated use {@link #launch(VMLaunchOptions)}
-	 */
-	@Deprecated
-	@Override
-	public @Nonnull VirtualMachine launch(@Nonnull String fromMachineImageId, @Nonnull VirtualMachineProduct product, @Nonnull String dataCenterId, @Nonnull String name, @Nonnull String description, @Nullable String withKeypairId, @Nullable String inVlanId, boolean withAnalytics, boolean asSandbox, @Nullable String ... firewallIds) throws InternalException, CloudException {
-		return launch(fromMachineImageId, product, dataCenterId, name, description, withKeypairId, inVlanId, withAnalytics, asSandbox, firewallIds, new Tag[0]);
-	}
-
-	/**
-	 * Launches a virtual machine in the cloud. If the cloud supports persistent servers, this method will
-	 * first define a server and then boot it. The end result of this operation should be a server
-	 * that is in the middle of booting up.
-	 * @param fromMachineImageId the provider ID of the image from which the server should be built
-	 * @param product the product being provisioned against
-	 * @param dataCenterId the provider ID for the data center into which the server will be launched
-	 * @param name the name of the new server
-	 * @param description a user-friendly description of the new virtual machine
-	 * @param withKeypairId the name of the keypair to use for root authentication or null if no keypair
-	 * @param inVlanId the ID of the VLAN into which the server should be launched, or null if not specifying (or not supported by the cloud)
-	 * @param withAnalytics whether or not hypervisor analytics should be enabled for the virtual machine
-	 * @param asSandbox for clouds that require sandboxes for image building, this launches the VM in a sandbox context
-	 * @param firewallIds the firewalls to protect the new server
-	 * @param tags a list of meta data to pass to the cloud provider
-	 * @return the newly launched server
-	 * @throws InternalException an error occurred within the Dasein Cloud API implementation
-	 * @throws CloudException an error occurred within the cloud provider
-	 * @deprecated use {@link #launch(VMLaunchOptions)}
-	 */
-	@Deprecated
-	@Override
-	public @Nonnull VirtualMachine launch(@Nonnull String fromMachineImageId, @Nonnull VirtualMachineProduct product, @Nonnull String dataCenterId, @Nonnull String name, @Nonnull String description, @Nullable String withKeypairId, @Nullable String inVlanId, boolean withAnalytics, boolean asSandbox, @Nullable String[] firewallIds, @Nullable Tag ... tags)	throws InternalException, CloudException {
-		VMLaunchOptions cfg = VMLaunchOptions.getInstance(product.getProviderProductId(), fromMachineImageId, name, description == null ? name : description);
-
-		if( withKeypairId != null ) {
-			cfg.withBoostrapKey(withKeypairId);
-		}
-		if( inVlanId != null ) {
-			cfg.inVlan(null, dataCenterId, inVlanId);
-		}
-		if( dataCenterId != null ) {
-			cfg.inDataCenter(dataCenterId);
-		}
-		if( tags != null && tags.length > 0 ) {
-			HashMap<String,Object> meta = new HashMap<String, Object>();
-
-			for( Tag t : tags ) {
-				meta.put(t.getKey(), t.getValue());
-			}
-			cfg.withMetaData(meta);
-		}
-		return launch(cfg);
-	}
-
-	/**
 	 * Preferred mechanism for launching a virtual machine in the cloud. This method accepts a rich set of launch
 	 * configuration options that define what the virtual machine should look like once launched. These options may
 	 * include things that behave very differently in some clouds. It is expected that the method will return 
@@ -1082,40 +1002,16 @@ public class VMSupport implements VirtualMachineSupport {
 	private @Nonnull VirtualMachine launchFromCatalogItem(@Nonnull String catalogId, @Nonnull String productString, @Nonnull String dataCenterId, @Nonnull String name, @Nonnull String description, @Nullable String inVlanId, @Nullable NICConfig[] nics, @Nullable Map<String, Object> tags)	throws InternalException, CloudException {
 		logger.trace("enter() - launchFromCatalogItem()");
 
-		ProviderContext ctx = provider.getContext();
+		final ProviderContext ctx = provider.getContext();
 		VirtualMachine server = null;
-
-		name = validateName(name);
-		if( description.length() > 100 ) {
-			description = description.substring(0, 100);
-		}
-		if( inVlanId == null ) {
-			for( VLAN n : provider.getNetworkServices().getVlanSupport().listVlans() ) {
-				inVlanId = n.getProviderVlanId();
-				break;
-			}
+		String vlanId = inVlanId;
+		if( vlanId == null ) {
+			vlanId = getFirstVlan();
 		}
 
-		//product string format cpu:ram
-		String cpuCount;
-		String ramSize;
-		String[] productIds = productString.split(":");
-		if (productIds.length == 2) {
-			cpuCount = productIds[0];
-			ramSize = productIds[1];
-		}
-		else if (productIds.length == 3) {
-			cpuCount = productIds[0];
-			ramSize = productIds[1];
-			logger.warn("Provided disk size(s) will be ignored. Call alter vm to change disk sizes.");
-		}
-		else {
-			throw new InternalError("Invalid product id string");
-		}
+		VirtualMachineProduct product = parseProductString(productString);
 
 		Layout layout = getLayout(ctx.getRegionId());
-		String rowId = null;
-		String groupId = null;	
 		MachineImage catalogEntry = null;
 
 		String url = "/" + VIRTUAL_MACHINES + "/" + EnvironmentsAndComputePools.COMPUTE_POOLS + "/" + dataCenterId + "/action/importVirtualMachine";
@@ -1126,114 +1022,47 @@ public class VMSupport implements VirtualMachineSupport {
 		try {
 			docBuilder = docFactory.newDocumentBuilder();
 
-			// root element
 			Document doc = docBuilder.newDocument();
 			Element rootElement = doc.createElement("ImportVirtualMachine");
-			rootElement.setAttribute(Terremark.NAME, name);
 
-			Element processorCount = doc.createElement("ProcessorCount");
-			processorCount.appendChild(doc.createTextNode(cpuCount));
-			rootElement.appendChild(processorCount);
-
-			Element memory = doc.createElement("Memory");
-			Element unit = doc.createElement("Unit");
-			Element value = doc.createElement("Value");
-			unit.appendChild(doc.createTextNode("MB"));
-			value.appendChild(doc.createTextNode(ramSize));
-			memory.appendChild(unit);
-			memory.appendChild(value);
-			rootElement.appendChild(memory);
-
-			Element layoutElement = doc.createElement("Layout");
-			if (layout.contains(ROW_NAME, GROUP_NAME)){
-				Row row = layout.getRowId(ROW_NAME, GROUP_NAME);
-				groupId = row.getGroupId(GROUP_NAME);
-				Element group = doc.createElement(GROUP_TAG);
-				group.setAttribute(Terremark.HREF, Terremark.DEFAULT_URI_PATH + "/" + LAYOUT_GROUPS + "/" + groupId);
-				group.setAttribute(Terremark.TYPE, GROUP_TYPE);
-				layoutElement.appendChild(group);
-
-			}
-			else if (layout.contains(ROW_NAME)){
-				rowId = layout.getRowId(ROW_NAME).getId();
-				Element row = doc.createElement(ROW_TAG);
-				row.setAttribute(Terremark.HREF, Terremark.DEFAULT_URI_PATH + "/" + LAYOUT_ROWS + "/" + rowId);
-				row.setAttribute(Terremark.TYPE, ROW_TYPE);
-				Element newGroup = doc.createElement("NewGroup");
-				newGroup.appendChild(doc.createTextNode(GROUP_NAME));
-				layoutElement.appendChild(row);
-				layoutElement.appendChild(newGroup);
-			}
-			else {
-				Element newRow = doc.createElement("NewRow");
-				Element newGroup = doc.createElement("NewGroup");
-				newRow.appendChild(doc.createTextNode(ROW_NAME));
-				newGroup.appendChild(doc.createTextNode(GROUP_NAME));
-				layoutElement.appendChild(newRow);
-				layoutElement.appendChild(newGroup);
-			}
-			rootElement.appendChild(layoutElement);
-
-			Element descriptionElement = doc.createElement("Description");
-			descriptionElement.appendChild(doc.createTextNode(description));
-			rootElement.appendChild(descriptionElement);
-
-			Element tagsElement = doc.createElement("Tags");
-
-			//Add a tag with the image ID so we will know what image the server was launched from when we discover it
-			Element templateTagElement = doc.createElement("Tag");
-			String templateHref = "/" + Template.TEMPLATES + "/" + catalogId + "/" + EnvironmentsAndComputePools.COMPUTE_POOLS + "/" + dataCenterId;
-			templateTagElement.appendChild(doc.createTextNode(templateHref));
-			tagsElement.appendChild(templateTagElement);
-			rootElement.appendChild(tagsElement);
-
-			for(String key: tags.keySet()){
-				Element tagElement = doc.createElement("Tag");
-				String tagValue = tags.get(key).toString();
-				tagElement.appendChild(doc.createTextNode(key + "=" + tagValue));
-				tagsElement.appendChild(tagElement);
-				rootElement.appendChild(tagsElement);
-			}
+			addNameAttribute(rootElement, name);
+			addVmHardwareElements(doc, rootElement, product);
+			addLayoutElements(doc, rootElement, layout);
+			addDescriptionElement(doc, rootElement, description);
+			final String catalogHref = "/" + Terremark.ADMIN + "/" + Template.CATALOG + "/" + catalogId;
+			addTagsElement(doc, rootElement, catalogHref, tags);
 
 			catalogEntry = provider.getComputeServices().getImageSupport().getImage(catalogId+"::"+Template.ImageType.CATALOG_ENTRY.name());
 
 			if (catalogEntry == null) {
-				throw new CloudException("Failed to find machine image " + catalogId);
+				throw new CloudException("launchFromCatalogItem(): Failed to find machine image " + catalogId);
 			}
 
 			Element catalogEntryElement = doc.createElement("CatalogEntry");
-			catalogEntryElement.setAttribute(Terremark.HREF, Terremark.DEFAULT_URI_PATH + "/" + Terremark.ADMIN + "/" + Template.CATALOG + "/" + catalogId);
+			catalogEntryElement.setAttribute(Terremark.HREF, Terremark.DEFAULT_URI_PATH + catalogHref);
 			rootElement.appendChild(catalogEntryElement);
-
-			VLAN network = provider.getNetworkServices().getVlanSupport().getVlan(inVlanId);
 
 			Element networkMappingsElement = doc.createElement("NetworkMappings");
 
 			int networkMappingCount = 0;
 			try {
 				networkMappingCount = Integer.parseInt((String)catalogEntry.getTag("NetworkMappingCount"));
-				logger.debug("NetworkMappingCount = " + networkMappingCount);
+				logger.debug("launchFromCatalogItem(): NetworkMappingCount = " + networkMappingCount);
 			}
 			catch (NumberFormatException e) {
-				throw new InternalException("Problem parsing NetworkMappingCount tag from catalog item.");
+				throw new InternalException("launchFromCatalogItem(): Problem parsing NetworkMappingCount tag from catalog item.");
 			}
 
 			for (int i=0; i<networkMappingCount; i++) {
 				String nmName = (String)catalogEntry.getTag(Template.NETWORK_MAPPING_NAME + "-" + i);
-				logger.debug("Adding NetworkMappring for " + nmName);
+				logger.debug("launchFromCatalogItem(): Adding NetworkMappring for " + nmName);
 				Element networkMappingElement = doc.createElement("NetworkMapping");
 				networkMappingElement.setAttribute(Terremark.NAME, nmName);
 
-				Element networkElement = doc.createElement(TerremarkNetworkSupport.NETWORK_TAG);
-				networkElement.setAttribute(Terremark.HREF, Terremark.DEFAULT_URI_PATH + "/" + TerremarkNetworkSupport.NETWORKS + "/" + inVlanId);
-				networkElement.setAttribute(Terremark.NAME, network.getName());
-				networkElement.setAttribute(Terremark.TYPE, TerremarkNetworkSupport.NETWORK_TYPE);
-				networkMappingElement.appendChild(networkElement);
+				addNetworkElement(doc, networkMappingElement, vlanId);
 
 				networkMappingsElement.appendChild(networkMappingElement);
 			}
-
-
 
 			rootElement.appendChild(networkMappingsElement);
 
@@ -1245,9 +1074,19 @@ public class VMSupport implements VirtualMachineSupport {
 			body = stw.toString();
 
 		} catch (ParserConfigurationException e) {
-			e.printStackTrace();
+			if (logger.isDebugEnabled()) {
+				logger.warn("launchFromCatalogItem(): Error creating a new instance of a DocumentBuilder", e);
+			}
+			else {
+				logger.warn("launchFromCatalogItem(): Error creating a new instance of a DocumentBuilder");
+			}
 		} catch (TransformerException e) {
-			e.printStackTrace();
+			if (logger.isDebugEnabled()) {
+				logger.warn("launchFromCatalogItem(): Error transforming the xml", e);
+			}
+			else {
+				logger.warn("launchFromCatalogItem(): Error transforming the xml");
+			}
 		}
 
 		TerremarkMethod method = new TerremarkMethod(provider, HttpMethodName.POST, url, null, body);
@@ -1263,64 +1102,61 @@ public class VMSupport implements VirtualMachineSupport {
 		if (nics != null) {
 			for (NICConfig nicConfig : nics) {
 				NetworkInterface nic = provider.getNetworkServices().getVlanSupport().getNetworkInterface(nicConfig.nicId);
-				String vlanId = nic.getProviderVlanId();
-				if (networkMap.containsKey(vlanId)) {
-					List<String> networkIps = networkMap.get(vlanId);
+				String nicVlanId = nic.getProviderVlanId();
+				if (networkMap.containsKey(nicVlanId)) {
+					List<String> networkIps = networkMap.get(nicVlanId);
 					for (RawAddress address : nic.getIpAddresses()) {
 						networkIps.add(address.getIpAddress());
 					}
-					networkMap.put(vlanId, networkIps);
+					networkMap.put(nicVlanId, networkIps);
 				}
 				else {
 					List<String> networkIps = new ArrayList<String>();
 					for (RawAddress address : nic.getIpAddresses()) {
 						networkIps.add(address.getIpAddress());
 					}
-					networkMap.put(vlanId, networkIps);
+					networkMap.put(nicVlanId, networkIps);
 				}
 			}
 		}
 		else {
-			/*
-			IPVersion version;
-			if (inVlanId.contains("ipv6")) {
-				version = IPVersion.IPV6;
-			}
-			else {
-				version = IPVersion.IPV4;
-			}
-			String availableIpAddressId = provider.getNetworkServices().getIpAddressSupport().requestForVLAN(version, inVlanId);
-			 */
-			String availableIpAddress = provider.getNetworkServices().getIpAddressSupport().getUnreservedAvailablePrivateIp(inVlanId);
+			String availableIpAddress = provider.getNetworkServices().getIpAddressSupport().getUnreservedAvailablePrivateIp(vlanId);
 			if (availableIpAddress == null) {
 				throw new CloudException("Failed to find an available private ip");
 			}
 			else {
-				//String availableIpAddress = provider.getNetworkServices().getIpAddressSupport().getIpAddress(availableIpAddressId).getRawAddress().getIpAddress();
 				List<String> networkIps = new ArrayList<String>();
 				networkIps.add(availableIpAddress);
-				networkMap.put(inVlanId, networkIps);
+				networkMap.put(vlanId, networkIps);
 			}
 		}
 
 		assignIpAddresses(vmId, networkMap);
 
 		logger.debug("launchFromCatalogItem(): getting virtual machine " + vmId);
-		server = getVirtualMachine(vmId);	
+		server = getVirtualMachine(vmId);
+		final String serverId = server.getProviderVirtualMachineId();
 
-		long waitTime = 0;
-		while (server.getCurrentState().equals(VmState.PENDING) && waitTime < DEFAULT_TIMEOUT) {
-			try {
-				Thread.sleep(DEFAULT_SLEEP);
-				waitTime += DEFAULT_SLEEP;
-				server = getVirtualMachine(vmId);
-				if (server.getCurrentState().equals(VmState.TERMINATED)) {
-					break;
-				}
-			} catch (InterruptedException e) {
-				e.printStackTrace();
-			}
-		}
+		Thread t = new Thread() {
+            public void run() {
+                provider.hold();
+                try {
+                    try {
+                    	waitForCatalogTask(serverId);
+                    }
+                    catch( Throwable t ) {
+                        logger.error("launchFromCatalogItem(): Failed while polling launch task for server " + serverId + ": " + t.getMessage());
+                        t.printStackTrace();
+                    }
+                }
+                finally {
+                    provider.release();
+                }
+            }
+        };
+        t.setName("Wait for Terremark Catalog Item Launch " + server.getProviderVirtualMachineId());
+        t.setDaemon(true);
+        t.start();
 
 		if (server.getCurrentState().equals(VmState.STOPPED)) {
 			start(vmId);
@@ -1330,43 +1166,136 @@ public class VMSupport implements VirtualMachineSupport {
 		logger.trace("exit() - launchFromCatalogItem()");
 		return server;
 	}
+	
+	private void waitForCatalogTask(String serverId) throws InternalException, CloudException {
+		final long catalogImportTimeout = CalendarWrapper.HOUR * 28;
+		long waitTime = 0;
+		long sleepTime;
+		VirtualMachine server = getVirtualMachine(serverId);
+		while (server.getCurrentState().equals(VmState.PENDING) && waitTime < catalogImportTimeout) {
+			try {
+				if (waitTime < DEFAULT_TIMEOUT) {
+					sleepTime = DEFAULT_SLEEP;
+				}
+				else {
+					sleepTime = CalendarWrapper.MINUTE * 10;
+				}
+				Thread.sleep(sleepTime);
+				waitTime += sleepTime;
+				server = getVirtualMachine(serverId);
+				if (server.getCurrentState().equals(VmState.TERMINATED)) {
+					break;
+				}
+			} catch (InterruptedException e) {
+				if (logger.isDebugEnabled()) {
+					logger.warn("waitForCatalogTask(): Thread was interrupted waiting for server to leave pending state.", e);
+				}
+				else {
+					logger.warn("waitForCatalogTask(): Thread was interrupted waiting for server to leave pending state.");
+				}
+			}
+		}
+	}
+
+	private void addNetworkElement(Document doc, Element networkParentElement, String vlanId) throws CloudException, InternalException {
+		VLAN network = provider.getNetworkServices().getVlanSupport().getVlan(vlanId);
+		Element networkElement = doc.createElement(TerremarkNetworkSupport.NETWORK_TAG);
+		networkElement.setAttribute(Terremark.HREF, Terremark.DEFAULT_URI_PATH + "/" + TerremarkNetworkSupport.NETWORKS + "/" + vlanId);
+		networkElement.setAttribute(Terremark.NAME, network.getName());
+		networkElement.setAttribute(Terremark.TYPE, TerremarkNetworkSupport.NETWORK_TYPE);
+		networkParentElement.appendChild(networkElement);
+	}
+
+	private void addTagsElement(Document doc, Element rootElement, String imageId, Map<String, Object> tags) {
+		Element tagsElement = doc.createElement("Tags");
+
+		//Add a tag with the image ID so we will know what image the server was launched from when we discover it
+		Element templateTagElement = doc.createElement("Tag");
+		templateTagElement.appendChild(doc.createTextNode(imageId));
+		tagsElement.appendChild(templateTagElement);
+		rootElement.appendChild(tagsElement);
+
+		for(String key: tags.keySet()){
+			Element tagElement = doc.createElement("Tag");
+			String tagValue = tags.get(key).toString();
+			String tag = key + "=" + tagValue;
+			tag = Terremark.removeCommas(tag);
+			tagElement.appendChild(doc.createTextNode(tag));
+			tagsElement.appendChild(tagElement);
+			rootElement.appendChild(tagsElement);
+		}
+	}
+
+	private void addDescriptionElement(Document doc, Element rootElement, String description) {
+		if( description.length() > 100 ) {
+			description = description.substring(0, 100);
+		}
+		Element descriptionElement = doc.createElement("Description");
+		descriptionElement.appendChild(doc.createTextNode(description));
+		rootElement.appendChild(descriptionElement);
+	}
+
+	private void addLayoutElements(Document doc, Element rootElement, Layout layout) {
+		Element layoutElement = doc.createElement("Layout");
+		if (layout.contains(ROW_NAME, GROUP_NAME)){
+			Row row = layout.getRowId(ROW_NAME, GROUP_NAME);
+			String groupId = row.getGroupId(GROUP_NAME);
+			Element group = doc.createElement(GROUP_TAG);
+			group.setAttribute(Terremark.HREF, Terremark.DEFAULT_URI_PATH + "/" + LAYOUT_GROUPS + "/" + groupId);
+			group.setAttribute(Terremark.TYPE, GROUP_TYPE);
+			layoutElement.appendChild(group);
+
+		}
+		else if (layout.contains(ROW_NAME)){
+			String rowId = layout.getRowId(ROW_NAME).getId();
+			Element row = doc.createElement(ROW_TAG);
+			row.setAttribute(Terremark.HREF, Terremark.DEFAULT_URI_PATH + "/" + LAYOUT_ROWS + "/" + rowId);
+			row.setAttribute(Terremark.TYPE, ROW_TYPE);
+			Element newGroup = doc.createElement("NewGroup");
+			newGroup.appendChild(doc.createTextNode(GROUP_NAME));
+			layoutElement.appendChild(row);
+			layoutElement.appendChild(newGroup);
+		}
+		else {
+			Element newRow = doc.createElement("NewRow");
+			Element newGroup = doc.createElement("NewGroup");
+			newRow.appendChild(doc.createTextNode(ROW_NAME));
+			newGroup.appendChild(doc.createTextNode(GROUP_NAME));
+			layoutElement.appendChild(newRow);
+			layoutElement.appendChild(newGroup);
+		}
+		rootElement.appendChild(layoutElement);		
+	}
+
+	private void addVmHardwareElements(Document doc, Element rootElement, VirtualMachineProduct product) {
+		Element processorCount = doc.createElement("ProcessorCount");
+		String cpuCount = Integer.toString(product.getCpuCount());
+		processorCount.appendChild(doc.createTextNode(cpuCount));
+		rootElement.appendChild(processorCount);
+
+		Element memory = doc.createElement("Memory");
+		Element unit = doc.createElement("Unit");
+		Element value = doc.createElement("Value");
+		unit.appendChild(doc.createTextNode("MB"));
+		String ramInMB = Integer.toString(product.getRamSize().intValue());
+		value.appendChild(doc.createTextNode(ramInMB));
+		memory.appendChild(unit);
+		memory.appendChild(value);
+		rootElement.appendChild(memory);
+	}
 
 	private @Nonnull VirtualMachine launchFromTemplate(@Nonnull String templateId, @Nonnull String productString, @Nonnull String dataCenterId, @Nonnull String name, @Nonnull String description, @Nullable String withKeypairId, @Nullable String withPassword, @Nullable String inVlanId, @Nullable NICConfig[] nics, @Nullable Map<String, Object> tags) throws InternalException, CloudException {
 		logger.trace("enter() - launchFromTemplate()");
 
 		ProviderContext ctx = provider.getContext();
 		VirtualMachine server = null;
-		name = validateName(name);
-		if( description.length() > 100 ) {
-			description = description.substring(0, 100);
-		}
 		if( inVlanId == null ) {
-			for( VLAN n : provider.getNetworkServices().getVlanSupport().listVlans() ) {
-				inVlanId = n.getProviderVlanId();
-				break;
-			}
+			inVlanId = getFirstVlan();
 		}
 
-		//product string format cpu:ram
-		String cpuCount;
-		String ramSize;
-		String[] productIds = productString.split(":");
-		if (productIds.length == 2) {
-			cpuCount = productIds[0];
-			ramSize = productIds[1];
-		}
-		else if (productIds.length == 3) {
-			cpuCount = productIds[0];
-			ramSize = productIds[1];
-			logger.warn("Provided disk size(s) will be ignored. Call alter vm to change disk sizes.");
-		}
-		else {
-			throw new InternalError("Invalid product id string");
-		}
+		VirtualMachineProduct product = parseProductString(productString);
 
-		Layout layout = getLayout(ctx.getRegionId());
-		String rowId = null;
-		String groupId = null;	
+		Layout layout = getLayout(ctx.getRegionId());	
 		MachineImage template = null;
 
 		String url = "/" + VIRTUAL_MACHINES + "/" + EnvironmentsAndComputePools.COMPUTE_POOLS + "/" + dataCenterId + "/action/createVirtualMachine";
@@ -1377,63 +1306,18 @@ public class VMSupport implements VirtualMachineSupport {
 		try {
 			docBuilder = docFactory.newDocumentBuilder();
 
-			// root element
 			Document doc = docBuilder.newDocument();
 			Element rootElement = doc.createElement("CreateVirtualMachine");
-			rootElement.setAttribute(Terremark.NAME, name);
-
-			Element processorCount = doc.createElement("ProcessorCount");
-			processorCount.appendChild(doc.createTextNode(cpuCount));
-			rootElement.appendChild(processorCount);
-
-			Element memory = doc.createElement("Memory");
-			Element unit = doc.createElement("Unit");
-			Element value = doc.createElement("Value");
-			unit.appendChild(doc.createTextNode("MB"));
-			value.appendChild(doc.createTextNode(ramSize));
-			memory.appendChild(unit);
-			memory.appendChild(value);
-			rootElement.appendChild(memory);
-
-			Element layoutElement = doc.createElement("Layout");
-			if (layout.contains(ROW_NAME, GROUP_NAME)){
-				Row row = layout.getRowId(ROW_NAME, GROUP_NAME);
-				groupId = row.getGroupId(GROUP_NAME);
-				Element group = doc.createElement(GROUP_TAG);
-				group.setAttribute(Terremark.HREF, Terremark.DEFAULT_URI_PATH + "/" + LAYOUT_GROUPS + "/" + groupId);
-				group.setAttribute(Terremark.TYPE, GROUP_TYPE);
-				layoutElement.appendChild(group);
-
-			}
-			else if (layout.contains(ROW_NAME)){
-				rowId = layout.getRowId(ROW_NAME).getId();
-				Element row = doc.createElement(ROW_TAG);
-				row.setAttribute(Terremark.HREF, Terremark.DEFAULT_URI_PATH + "/" + LAYOUT_ROWS + "/" + rowId);
-				row.setAttribute(Terremark.TYPE, ROW_TYPE);
-				Element newGroup = doc.createElement("NewGroup");
-				newGroup.appendChild(doc.createTextNode(GROUP_NAME));
-				layoutElement.appendChild(row);
-				layoutElement.appendChild(newGroup);
-			}
-			else {
-				Element newRow = doc.createElement("NewRow");
-				Element newGroup = doc.createElement("NewGroup");
-				newRow.appendChild(doc.createTextNode(ROW_NAME));
-				newGroup.appendChild(doc.createTextNode(GROUP_NAME));
-				layoutElement.appendChild(newRow);
-				layoutElement.appendChild(newGroup);
-			}
-			rootElement.appendChild(layoutElement);
-
-			Element descriptionElement = doc.createElement("Description");
-			descriptionElement.appendChild(doc.createTextNode(description));
-			rootElement.appendChild(descriptionElement);
-
+			addNameAttribute(rootElement, name);
+			addVmHardwareElements(doc, rootElement, product);
+			addLayoutElements(doc, rootElement, layout);
+			addDescriptionElement(doc, rootElement, description);
+			String templateHref = "/" + Template.TEMPLATES + "/" + templateId + "/" + EnvironmentsAndComputePools.COMPUTE_POOLS + "/" + dataCenterId;
+			
 			Element tagsElement = doc.createElement("Tags");
 
 			//Add a tag with the image ID so we will know what image the server was launched from when we discover it
 			Element templateTagElement = doc.createElement("Tag");
-			String templateHref = "/" + Template.TEMPLATES + "/" + templateId + "/" + EnvironmentsAndComputePools.COMPUTE_POOLS + "/" + dataCenterId;
 			templateTagElement.appendChild(doc.createTextNode(templateHref));
 			tagsElement.appendChild(templateTagElement);
 			rootElement.appendChild(tagsElement);
@@ -1441,7 +1325,9 @@ public class VMSupport implements VirtualMachineSupport {
 			for(String key: tags.keySet()){
 				Element tagElement = doc.createElement("Tag");
 				String tagValue = tags.get(key).toString();
-				tagElement.appendChild(doc.createTextNode(key + "=" + tagValue));
+				String tag = key + "=" + tagValue;
+				tag = Terremark.removeCommas(tag);
+				tagElement.appendChild(doc.createTextNode(tag));
 				tagsElement.appendChild(tagElement);
 			}
 			rootElement.appendChild(tagsElement);
@@ -1520,14 +1406,9 @@ public class VMSupport implements VirtualMachineSupport {
 						logger.warn("Only one ip address of each version can be specified per network interface. Using the first ip in the array.");
 					}
 					if (dualStack) {
-						VLAN network = provider.getNetworkServices().getVlanSupport().getVlan(nic.getProviderVlanId());
 						Element networkAdapterElement = doc.createElement("NetworkAdapter");
 
-						Element networkElement = doc.createElement(TerremarkNetworkSupport.NETWORK_TAG);
-						networkElement.setAttribute(Terremark.HREF, Terremark.DEFAULT_URI_PATH + "/" + TerremarkNetworkSupport.NETWORKS + "/" + nic.getProviderVlanId());
-						networkElement.setAttribute(Terremark.NAME, network.getName());
-						networkElement.setAttribute(Terremark.TYPE, TerremarkNetworkSupport.NETWORK_TYPE);
-						networkAdapterElement.appendChild(networkElement);
+						addNetworkElement(doc, networkAdapterElement, nic.getProviderVlanId());
 
 						String ipv4Address = "";
 						String ipv6Address = "";
@@ -1551,14 +1432,8 @@ public class VMSupport implements VirtualMachineSupport {
 						networkAdapterSettingsElement.appendChild(networkAdapterElement);
 					}
 					else {
-						VLAN network = provider.getNetworkServices().getVlanSupport().getVlan(nic.getProviderVlanId());
 						Element networkAdapterElement = doc.createElement("NetworkAdapter");
-
-						Element networkElement = doc.createElement(TerremarkNetworkSupport.NETWORK_TAG);
-						networkElement.setAttribute(Terremark.HREF, Terremark.DEFAULT_URI_PATH + "/" + TerremarkNetworkSupport.NETWORKS + "/" + nic.getProviderVlanId());
-						networkElement.setAttribute(Terremark.NAME, network.getName());
-						networkElement.setAttribute(Terremark.TYPE, TerremarkNetworkSupport.NETWORK_TYPE);
-						networkAdapterElement.appendChild(networkElement);
+						addNetworkElement(doc, networkAdapterElement, nic.getProviderVlanId());
 
 						RawAddress address = nicAddresses[0];
 						if (address.getVersion().equals(IPVersion.IPV4)) {
@@ -1610,14 +1485,8 @@ public class VMSupport implements VirtualMachineSupport {
 						logger.warn("Only one ip address of each version can be specified per network interface. Using the first ip in the array.");
 					}
 					if (dualStack) {
-						VLAN network = provider.getNetworkServices().getVlanSupport().getVlan(nic.getProviderVlanId());
 						Element networkAdapterElement = doc.createElement("NetworkAdapter");
-
-						Element networkElement = doc.createElement(TerremarkNetworkSupport.NETWORK_TAG);
-						networkElement.setAttribute(Terremark.HREF, Terremark.DEFAULT_URI_PATH + "/" + TerremarkNetworkSupport.NETWORKS + "/" + nic.getProviderVlanId());
-						networkElement.setAttribute(Terremark.NAME, network.getName());
-						networkElement.setAttribute(Terremark.TYPE, TerremarkNetworkSupport.NETWORK_TYPE);
-						networkAdapterElement.appendChild(networkElement);
+						addNetworkElement(doc, networkAdapterElement, nic.getProviderVlanId());
 
 						String ipv4Address = "";
 						String ipv6Address = "";
@@ -1641,14 +1510,8 @@ public class VMSupport implements VirtualMachineSupport {
 						networkAdapterSettingsElement.appendChild(networkAdapterElement);
 					}
 					else {
-						VLAN network = provider.getNetworkServices().getVlanSupport().getVlan(nic.getProviderVlanId());
 						Element networkAdapterElement = doc.createElement("NetworkAdapter");
-
-						Element networkElement = doc.createElement(TerremarkNetworkSupport.NETWORK_TAG);
-						networkElement.setAttribute(Terremark.HREF, Terremark.DEFAULT_URI_PATH + "/" + TerremarkNetworkSupport.NETWORKS + "/" + nic.getProviderVlanId());
-						networkElement.setAttribute(Terremark.NAME, network.getName());
-						networkElement.setAttribute(Terremark.TYPE, TerremarkNetworkSupport.NETWORK_TYPE);
-						networkAdapterElement.appendChild(networkElement);
+						addNetworkElement(doc, networkAdapterElement, nic.getProviderVlanId());
 
 						RawAddress address = nicAddresses[0];
 						if (address.getVersion().equals(IPVersion.IPV4)) {
@@ -1717,9 +1580,19 @@ public class VMSupport implements VirtualMachineSupport {
 			body = stw.toString();
 
 		} catch (ParserConfigurationException e) {
-			e.printStackTrace();
+			if (logger.isDebugEnabled()) {
+				logger.warn("launchFromTemplate(): Error creating a new instance of a DocumentBuilder", e);
+			}
+			else {
+				logger.warn("launchFromTemplate(): Error creating a new instance of a DocumentBuilder");
+			}
 		} catch (TransformerException e) {
-			e.printStackTrace();
+			if (logger.isDebugEnabled()) {
+				logger.warn("launchFromTemplate(): Error transforming the xml", e);
+			}
+			else {
+				logger.warn("launchFromTemplate(): Error transforming the xml");
+			}
 		}
 
 		TerremarkMethod method = new TerremarkMethod(provider, HttpMethodName.POST, url, null, body);
@@ -1730,7 +1603,7 @@ public class VMSupport implements VirtualMachineSupport {
 		String taskHref = Terremark.getTaskHref(responseDoc, CREATE_SERVER_OPERATION);
 		provider.waitForTask(taskHref, DEFAULT_SLEEP, DEFAULT_TIMEOUT);
 
-		logger.debug("launch(): getting virtual machine " + vmId);
+		logger.debug("launchFromTemplate(): getting virtual machine " + vmId);
 		server = getVirtualMachine(vmId);	
 
 		if (server.getCurrentState().equals(VmState.STOPPED)) {
@@ -1745,8 +1618,39 @@ public class VMSupport implements VirtualMachineSupport {
 		else {
 			server.setRootUser(DEFAULT_ROOT_USER);
 		}
-		logger.trace("exit() - launchFromTemplate()");
+		logger.trace("exit - launchFromTemplate()");
 		return server;
+	}
+
+	private void addNameAttribute(Element rootElement, String name) {
+		name = validateName(name);
+		rootElement.setAttribute(Terremark.NAME, name);
+	}
+
+	private VirtualMachineProduct parseProductString(String productString) {
+		VirtualMachineProduct product = new VirtualMachineProduct();
+		//product string format cpu:ram
+		String[] productIds = productString.split(":");
+		if (productIds.length == 2 || productIds.length == 3) {
+			product.setCpuCount(Integer.parseInt(productIds[0]));
+			product.setRamSize(new Storage<Megabyte>(Integer.parseInt(productIds[1]), Storage.MEGABYTE));
+			if (productIds.length == 3) {
+				logger.warn("Provided disk size(s) will be ignored. Call alter vm to change disk sizes.");
+			}
+		}
+		else {
+			throw new InternalError("Invalid product id string");
+		}
+		return product;
+	}
+
+	private String getFirstVlan() throws CloudException, InternalException {
+		String inVlanId = null;
+		for( VLAN n : provider.getNetworkServices().getVlanSupport().listVlans() ) {
+			inVlanId = n.getProviderVlanId();
+			break;
+		}
+		return inVlanId;
 	}
 
 	/**
@@ -1898,32 +1802,6 @@ public class VMSupport implements VirtualMachineSupport {
 	}
 
 	/**
-	 * Maps the specified Dasein Cloud service action to an identifier specific to an underlying cloud. If there is
-	 * no mapping that makes any sense, the method will return an empty array.
-	 * @param action the Dasein Cloud service action
-	 * @return a list of cloud-specific IDs (e.g. iam:ListGroups) representing an action with this cloud provider
-	 */
-	@Override
-	public String[] mapServiceAction(ServiceAction action) {
-		return new String[0];
-	}
-
-	/**
-	 * Shuts down the target virtual machine. This method is a NO-OP in clouds that lack persistent
-	 * servers. The result of this method should be either a) a server that is still runnning
-	 * (for non-persistent server clouds) or b) paused and capable of being restarted (for persistent
-	 * server clouds). In no case should this method cause a destructive event such as the loss
-	 * of a server.
-	 * @param vmId the provider ID for the server to pause
-	 * @throws InternalException an error occurred within the Dasein Cloud API implementation
-	 * @throws CloudException an error occurred within the cloud provider
-	 */
-	@Override
-	public void pause(@Nonnull String vmId) throws InternalException, CloudException {
-		throw new OperationNotSupportedException("Terremark does not support pausing vms");
-	}
-
-	/**
 	 * Power off stops the virtual machine without waiting for processes to complete.
 	 * @param vmId the provider ID for the server to power off
 	 * @throws InternalException an error occurred within the Dasein Cloud API implementation
@@ -1954,19 +1832,6 @@ public class VMSupport implements VirtualMachineSupport {
 			String taskHref = Terremark.getTaskHref(doc, REBOOT_OPERATION);
 			provider.waitForTask(taskHref, DEFAULT_SLEEP, DEFAULT_TIMEOUT);
 		}
-	}
-
-	/**
-	 * Resumes a previously suspended virtual machine and returns it to an operational state ({@link VmState#RUNNING}).
-	 * @param vmId the virtual machine ID to be resumed
-	 * @throws CloudException an error occurred with the cloud provider in attempting to resume the virtual machine
-	 * @throws InternalException an error occurred within the Dasein Cloud implementation
-	 * @throws OperationNotSupportedException the target virtual machine cannot be suspended/resumed
-	 * @see #suspend(String)
-	 */
-	@Override
-	public void resume(String vmId) throws CloudException, InternalException {
-		throw new OperationNotSupportedException("Terremark does not support resuming vms");
 	}
 
 	/**
@@ -2004,35 +1869,6 @@ public class VMSupport implements VirtualMachineSupport {
 
 	/**
 	 * Shuts down a virtual machine with the capacity to boot it back up at a later time. The contents of volumes
-	 * associated with this virtual machine are preserved, but the memory is not. This method should first
-	 * attempt a nice shutdown, then force the shutdown.
-	 * @param vmId the virtual machine to be shut down
-	 * @throws InternalException an error occurred within the Dasein Cloud API implementation
-	 * @throws CloudException an error occurred within the cloud provider
-	 * @throws OperationNotSupportedException starting/stopping is not supported for this virtual machine
-	 * @see #start(String)
-	 * @see #stop(String,boolean)
-	 */
-	@Override
-	public void stop(String vmId) throws InternalException, CloudException {
-		try {
-			shutdown(vmId);
-		}
-		catch(Exception e){
-			logger.debug("stop(): shutdown failed, trying power off");
-		}
-		VmState status = getVirtualMachine(vmId).getCurrentState();
-		if (!status.equals(VmState.STOPPED)){
-			powerOff(vmId);
-		}
-		status = getVirtualMachine(vmId).getCurrentState();
-		if (!status.equals(VmState.STOPPED)){
-			throw new CloudException("Failed to stop server");
-		}
-	}
-
-	/**
-	 * Shuts down a virtual machine with the capacity to boot it back up at a later time. The contents of volumes
 	 * associated with this virtual machine are preserved, but the memory is not.
 	 * @param vmId the virtual machine to be shut down
 	 * @param force whether or not to force a shutdown (kill the power)
@@ -2056,32 +1892,6 @@ public class VMSupport implements VirtualMachineSupport {
 	}
 
 	/**
-	 * Identifies whether or not this cloud supports hypervisor-based analytics around usage and performance.
-	 * @return true if this cloud supports hypervisor-based analytics
-	 * @throws CloudException an error occurred with the cloud provider determining analytics support
-	 * @throws InternalException an error occurred within the Dasein Cloud implementation determining analytics support
-	 */
-	@Override
-	public boolean supportsAnalytics() throws CloudException, InternalException {
-		//TODO: change this to true and implement analytics support
-		return false;
-	}
-
-	/**
-	 * Indicates whether the ability to pause/unpause a virtual machine is supported for the specified VM.
-	 * @param vm the virtual machine to verify
-	 * @return true if pause/unpause is supported for this virtual machine
-	 * @see #pause(String)
-	 * @see #unpause(String)
-	 * @see VmState#PAUSING
-	 * @see VmState#PAUSED
-	 */
-	@Override
-	public boolean supportsPauseUnpause(VirtualMachine vm) {
-		return false;
-	}
-
-	/**
 	 * Indicates whether the ability to start/stop a virtual machine is supported for the specified VM.
 	 * @param vm the virtual machine to verify
 	 * @return true if start/stop operations are supported for this virtual machine
@@ -2094,34 +1904,6 @@ public class VMSupport implements VirtualMachineSupport {
 	@Override
 	public boolean supportsStartStop(VirtualMachine vm) {
 		return true;
-	}
-
-	/**
-	 * Indicates whether the ability to suspend/resume a virtual machine is supported for the specified VM.
-	 * @param vm the virtual machine to verify
-	 * @return true if suspend/resume operations are supported for this virtual machine
-	 * @see #suspend(String)
-	 * @see #resume(String)
-	 * @see VmState#SUSPENDING
-	 * @see VmState#SUSPENDED
-	 */
-	@Override
-	public boolean supportsSuspendResume(VirtualMachine vm) {
-		return false;
-	}
-
-	/**
-	 * Suspends a running virtual machine so that the memory is flushed to some kind of persistent storage for
-	 * the purpose of later resuming the virtual machine in the exact same state.
-	 * @param vmId the unique ID of the virtual machine to be suspended
-	 * @throws CloudException an error occurred with the cloud provider suspending the virtual machine
-	 * @throws InternalException an error occurred within the Dasein Cloud implementation
-	 * @throws OperationNotSupportedException suspending is not supported for this virtual machine
-	 * @see #resume(String)
-	 */
-	@Override
-	public void suspend(String vmId) throws CloudException, InternalException {
-		throw new OperationNotSupportedException("Terremark does not support suspending vms");
 	}
 
 	/**
@@ -2151,6 +1933,11 @@ public class VMSupport implements VirtualMachineSupport {
 		}
 	}
 
+    @Override
+    public void terminate(@Nonnull String vmId, String explanation)throws CloudException, InternalException{
+        terminate(vmId);
+    }
+
 	/**
 	 * Creates a VirtualMachine object from a virtual machine xml node
 	 * @param vmNode the xml node representing a virtual machine, identified by the tag VirtualMachine.
@@ -2165,6 +1952,7 @@ public class VMSupport implements VirtualMachineSupport {
 			return null;
 		}
 		VirtualMachine vm = new VirtualMachine();
+
 		ProviderContext ctx = provider.getContext();
 		if (ctx == null){
 			logger.warn("Context is null");
@@ -2190,7 +1978,7 @@ public class VMSupport implements VirtualMachineSupport {
 		vm.setRootPassword(null);
 
 		NodeList vmChildNodes = vmNode.getChildNodes();
-		String templateId = null;
+		String imageId = null;
 		String osName = null;
 		String status = null;
 		boolean poweredOn = false;
@@ -2289,8 +2077,13 @@ public class VMSupport implements VirtualMachineSupport {
 				for (int j=0; j < tags.getLength(); j++){
 					String tagValue = tags.item(j).getTextContent();
 					if (Terremark.getTemplateIdFromHref(tagValue) != null){
-						templateId = Terremark.getTemplateIdFromHref(tagValue);
-						//vm.setProviderMachineImageId(provider.getTemplateIdFromHref(tagValue));
+						imageId = Terremark.getTemplateIdFromHref(tagValue);
+						vm.setProviderMachineImageId(imageId);
+						logger.debug("toVirtualMachine(): ID = " + vm.getProviderVirtualMachineId() + " Machine Image ID = " + vm.getProviderMachineImageId());
+					}
+					else if (Terremark.getCatalogIdFromHref(tagValue) != null){
+						imageId = Terremark.getCatalogIdFromHref(tagValue);
+						vm.setProviderMachineImageId(imageId);
 						logger.debug("toVirtualMachine(): ID = " + vm.getProviderVirtualMachineId() + " Machine Image ID = " + vm.getProviderMachineImageId());
 					}
 					else {
@@ -2401,13 +2194,14 @@ public class VMSupport implements VirtualMachineSupport {
 								for (int l=0; l < networksNodes.getLength(); l++){
 									Node networkNode = networksNodes.item(l);
 									NamedNodeMap networkAttrs = networkNode.getAttributes();
-									String networkType = networkAttrs.getNamedItem(Terremark.TYPE).getNodeValue();
-									if (networkType.equals(TerremarkNetworkSupport.NETWORK_TYPE) || networkType.equals(TerremarkNetworkSupport.NETWORK_IPV6_TYPE)) {
-										NodeList ipAddressNodes = networkNode.getFirstChild().getChildNodes();
-										for (int n=0; n < ipAddressNodes.getLength(); n++){
-											String address = ipAddressNodes.item(n).getTextContent();
-											addresses.add(address);
-										}
+									if (l == 0) {
+										String networkId = Terremark.hrefToNetworkId(networkAttrs.getNamedItem(Terremark.HREF).getNodeValue());
+										vm.setProviderVlanId(networkId);
+									}
+									NodeList ipAddressNodes = networkNode.getFirstChild().getChildNodes();
+									for (int n=0; n < ipAddressNodes.getLength(); n++){
+										String address = ipAddressNodes.item(n).getTextContent();
+										addresses.add(address);
 									}
 								}
 								break;
@@ -2490,10 +2284,7 @@ public class VMSupport implements VirtualMachineSupport {
 			logger.debug("VM Status = " + status + " & PoweredOn = " + poweredOn + ", Setting current state to: " + state);
 			vm.setCurrentState(state);
 		}
-		if (templateId != null){
-			vm.setProviderMachineImageId(templateId);
-		}
-		else if (osName != null){
+		if (vm.getProviderMachineImageId() == null && osName != null){
 			logger.debug("toVirtualMachine(): Could not identify the template id, guessing based on OS name");
 			vm.setProviderMachineImageId(guessImageId(osName));
 		}
@@ -2524,20 +2315,6 @@ public class VMSupport implements VirtualMachineSupport {
 
 		logger.trace("exit - toVirtualMachine");
 		return vm;
-	}
-
-	/**
-	 * Executes a hypervisor unpause operation on a currently paused virtual machine, adding it back into the
-	 * hypervisor scheduler.
-	 * @param vmId the unique ID of the virtual machine to be unpaused
-	 * @throws CloudException an error occurred within the cloud provider while unpausing
-	 * @throws InternalException an error occurred within the Dasein Cloud API implementation
-	 * @throws OperationNotSupportedException pausing/unpausing is not supported for the specified virtual machine
-	 * @see #pause(String)
-	 */
-	@Override
-	public void unpause(String vmId) throws CloudException, InternalException {
-		throw new OperationNotSupportedException("Terremark does not support unpausing vms");
 	}
 
 	/**
