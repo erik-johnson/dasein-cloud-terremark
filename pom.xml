@@ -11,7 +11,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>org.dasein</groupId>
 	<artifactId>dasein-cloud-terremark</artifactId>
-	<version>2013.11-SNAPSHOT</version>
+	<version>2013.07</version>
 	<packaging>jar</packaging>
 
 	<name>dasein-cloud-terremark</name>
@@ -247,9 +247,9 @@
 							<value>${test.shareAccount}</value>
 						</property>
 					</systemProperties>
-					<excludes>
-						<exclude>**/TestSuite.java</exclude>
-					</excludes>
+					<includes>
+						<include>**/TestSuite.java</include>
+					</includes>
 				</configuration>
 			</plugin>
 			<plugin>
