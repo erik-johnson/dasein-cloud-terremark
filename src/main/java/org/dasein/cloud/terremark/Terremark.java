@@ -105,7 +105,7 @@ public class Terremark  extends AbstractCloud {
 	static public final String TMRK_CURRENTUSER      = "x-tmrk-currentuser";
 	static public final String TMRK_DEPRECATED       = "x-tmrk-deprecated";
 	// Header Values
-	static public final String VERSION               = "2012-09-01";
+	static public final String VERSION               = "2013-06-01";
 	static public final String ALGORITHM             = "HmacSha512";
 	public final static String RFC1123_PATTERN       = "EEE, dd MMM yyyy HH:mm:ss z";
 	public final static String ISO8601_PATTERN       = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'";
