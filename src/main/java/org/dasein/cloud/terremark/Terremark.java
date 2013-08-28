@@ -355,7 +355,9 @@ public class Terremark  extends AbstractCloud {
 		headers.put(ACCEPT, XML);
 		if (body != null && (methodType.equals(HttpMethodName.PUT) || methodType.equals(HttpMethodName.POST) || methodType.equals(HttpMethodName.DELETE))){
 			contentLength = new String("" + body.getBytes().length);
+            headers.put(CONTENT_LENGTH, contentLength);
 		}
+
 		if (body != null && !body.equals("")){
 			contentType = XML;
 			headers.put(CONTENT_TYPE, contentType);
