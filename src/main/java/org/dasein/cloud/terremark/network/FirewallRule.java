@@ -306,6 +306,9 @@ public class FirewallRule extends AbstractFirewallSupport {
 				destinationElement.appendChild(networkElement);
 			}
 			else if (destinationType.equals(RuleTargetType.GLOBAL)) {
+                if (permission.equals(Permission.ALLOW) && direction.equals(Direction.INGRESS)) {
+                    throw new InternalException("Ingress rules with allow permission and a global destination are not supported in Terremark.");
+                }
 				destinationTypeElement.appendChild(doc.createTextNode("Any"));
 				destinationElement.appendChild(destinationTypeElement);
 			}
@@ -831,7 +834,7 @@ public class FirewallRule extends AbstractFirewallSupport {
 					String vlanId = Terremark.hrefToNetworkId(destinationNode.getAttributes().getNamedItem(Terremark.HREF).getNodeValue());
 					destination = RuleTarget.getVlan(vlanId);
 				}
-				else if (sourceType.equals("ExternalIp")){
+				else if (destinationType.equals("ExternalIp")){
 					destination = RuleTarget.getCIDR(destinationNode.getTextContent() + "/32");
 					direction = Direction.EGRESS;
 				}
@@ -851,6 +854,11 @@ public class FirewallRule extends AbstractFirewallSupport {
 			}
 
 		}
+        if (destinationType != null && permission != null) {
+            if (destinationType.equals("Any") && permission.equals(Permission.ALLOW)) {
+                 direction = Direction.EGRESS;
+            }
+        }
 		if (source != null && destination != null) {
 			rule = org.dasein.cloud.network.FirewallRule.getInstance(firewallRuleId, providerFirewallId, source, direction, protocol, permission, destination, startPort, endPort);
 		}
