@@ -854,7 +854,6 @@ public class TerremarkIpAddressSupport  implements IpAddressSupport {
 	/**
 	 * Finds a private ip address that is not tied to a server and unreserves it if it is reserved.
 	 * @param networkId the id of the network containing the private ips being sought
-	 * @param true if you want the ip address to be reserved, false if you want it to be unreserved
 	 * @return Available private IP addresses from the network in the reserved/unreserved state requested
 	 * @throws InternalException an internal error occurred inside the Dasein Cloud implementation
 	 * @throws CloudException an error occurred processing the request in the cloud
@@ -1087,11 +1086,8 @@ public class TerremarkIpAddressSupport  implements IpAddressSupport {
 	}
 	
 	/**
-	 * Lists all IP addresses of the specified IP version that are allocated to the account holder's IP address pool. If
-	 * the specified version is not supported, an empty list should be returned.
-	 * @param version the version of the IP protocol for which you are looking for IP addresses
-	 * @param unassignedOnly show only IP addresses that have yet to be assigned to cloud resources
-	 * @return all matching IP addresses from the IP address pool
+	 * Lists all IP addresses that are allocated to the account holder's IP address pool.
+	 * @return all IP addresses from the IP address pool
 	 * @throws InternalException a local error occurred loading the IP addresses
 	 * @throws CloudException an error occurred with the cloud provider while requesting the IP addresses
 	 */
@@ -1216,9 +1212,7 @@ public class TerremarkIpAddressSupport  implements IpAddressSupport {
 	/**
 	 * Lists all (or unassigned, reservable or reserved) private IP addresses within a network.
 	 * @param networkId the id of the network containing the private ips being sought
-	 * @param unassignedOnly indicates that only unassigned addresses are being sought
-	 * @param reservableOnly indicated that only reservable addresses are being sought
-	 * @param reservedOnly indicated that only reserved addresses are being sought
+     * @param version the IP version (IPV4 or IPV6) of the private ips being sought
 	 * @return all private IP addresses or the unassigned ones from the network 
 	 * @throws InternalException an internal error occurred inside the Dasein Cloud implementation
 	 * @throws CloudException an error occurred processing the request in the cloud
