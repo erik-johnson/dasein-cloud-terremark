@@ -190,6 +190,10 @@
 				<version>2.6</version>
 				<configuration>
 					<systemProperties>
+                        <property>
+                            <name>providerClass</name>
+                            <value>org.dasein.cloud.terremark.Terremark</value>
+                        </property>
 						<property>
 							<name>endpoint</name>
 							<value>${endpoint}</value>
@@ -198,10 +202,14 @@
 							<name>accountNumber</name>
 							<value>${accountNumber}</value>
 						</property>
-						<property>
-							<name>apiSharedKey</name>
-							<value>${apiSharedKey}</value>
-						</property>
+                        <property>
+                            <name>accessPublic</name>
+                            <value>${apiSharedKey}</value>
+                        </property>
+                        <property>
+                            <name>accessPrivate</name>
+                            <value>${apiSecretKey}</value>
+                        </property>
 						<property>
 							<name>x509Cert</name>
 							<value>${x509Cert}</value>
@@ -209,10 +217,6 @@
 						<property>
 							<name>x509Key</name>
 							<value>${x509Key}</value>
-						</property>
-						<property>
-							<name>apiSecretKey</name>
-							<value>${apiSecretKey}</value>
 						</property>
 						<property>
 							<name>cloudName</name>
@@ -241,10 +245,6 @@
 						<property>
 							<name>test.product</name>
 							<value>${test.product}</value>
-						</property>
-						<property>
-							<name>test.shareAccount</name>
-							<value>${test.shareAccount}</value>
 						</property>
 					</systemProperties>
 					<includes>

@@ -21,5 +21,5 @@ package org.dasein.cloud.terremark;
 
 import org.dasein.cloud.test.GlobalTestSuite;
 
-public class TerremarkTestSuite extends GlobalTestSuite {
+public class TestSuite extends GlobalTestSuite {
 }
